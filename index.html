@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>首頁</title>
+<style>
+/* ===================== 主題變數（極簡深色） ===================== */
+:root{
+  --bg:#0b0b0c;
+  /* 毛玻璃表面：半透明 + 強模糊 + 飽和提升，換任何背景都耐看 */
+  /* Apple 液態玻璃：亮邊高光漸層 + 強模糊提亮 + 上緣鏡面、下緣暗影 */
+  --surface:linear-gradient(135deg,rgba(255,255,255,.14),rgba(255,255,255,.05) 50%,rgba(255,255,255,.02));
+  --surface-solid:rgba(26,26,32,.66);
+  --surface-2:linear-gradient(135deg,rgba(255,255,255,.24),rgba(255,255,255,.09));
+  --border:rgba(255,255,255,.22);
+  --border-strong:rgba(255,255,255,.36);
+  --text:#f4f4f7;
+  --muted:#c4c4cd;
+  --faint:#8c8c97;
+  --accent:#8fbcff;
+  --danger:#e8897d;
+  --radius:24px;
+  --blur:blur(30px) saturate(190%) brightness(1.08);
+  --shadow:0 16px 50px rgba(0,0,0,.5);
+  /* 液態玻璃厚度：外陰影 + 上緣鏡面高光 + 下緣內暗影 + 亮色細邊框 */
+  --glass-edge:0 12px 40px rgba(0,0,0,.32), inset 0 1px 1px rgba(255,255,255,.5), inset 0 -12px 30px rgba(0,0,0,.10), inset 0 0 0 1px rgba(255,255,255,.08);
+  --sheen:linear-gradient(135deg,rgba(255,255,255,.30) 0%,rgba(255,255,255,.06) 30%,rgba(255,255,255,0) 56%);
+  --txt-shadow:0 1px 16px rgba(0,0,0,.5);
+  --ease:cubic-bezier(.22,.61,.36,1);
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg)}
+html,body{height:100%}
+body{
+  color:var(--text);font-family:var(--font);
+  -webkit-font-smoothing:antialiased;background:transparent;
+  min-height:100vh;overflow-x:hidden;
+}
+::selection{background:rgba(106,163,255,.3)}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select,textarea{font-family:inherit}
+
+/* ===================== 背景層 ===================== */
+.bg-layer{position:fixed;inset:0;border:none;width:100%;height:100%}
+#bgBase{background:var(--bg);z-index:0}
+#bgGradient{
+  z-index:1;
+  background:linear-gradient(125deg,#0b0b10,#10131c,#1a1426,#0d1a1c,#0b0b10);
+  background-size:400% 400%;
+  animation:gradientShift 26s var(--ease) infinite;
+}
+@keyframes gradientShift{
+  0%{background-position:0% 50%}
+  50%{background-position:100% 50%}
+  100%{background-position:0% 50%}
+}
+#bgVideo{z-index:1;object-fit:cover;display:none}
+#bgFrame{z-index:1;display:none;pointer-events:none}
+#bgOverlay{z-index:2;background:#000;opacity:.35;transition:opacity .4s var(--ease)}
+.app{position:relative;z-index:10}
+
+/* 液態玻璃鏡面高光：左上亮、往右下淡出 */
+.search-box::before,.link-card::before,.panel::before,.modal::before{
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:var(--sheen);z-index:0;
+}
+.search-box svg,.search-box input{position:relative;z-index:1}
+.link-card .link-ico,.link-card .link-name{position:relative;z-index:1}
+.panel-head,#sections{position:relative;z-index:1}
+.modal>*{position:relative;z-index:1}
+/* 捲軸 */
+.panel::-webkit-scrollbar{width:8px}
+.panel::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:99px}
+.panel::-webkit-scrollbar-track{background:transparent}
+
+/* ===================== 版面 ===================== */
+.app{
+  max-width:1180px;margin:0 auto;padding:22px 26px 70px;
+  display:flex;flex-direction:column;min-height:100vh;
+}
+.top-bar{display:flex;justify-content:flex-end;gap:6px}
+.icon-btn{
+  width:40px;height:40px;border-radius:11px;display:grid;place-items:center;
+  color:var(--faint);transition:.22s var(--ease);
+}
+.icon-btn:hover{color:var(--text);background:var(--surface);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);box-shadow:var(--glass-edge)}
+.icon-btn svg{width:20px;height:20px}
+
+.layout{flex:1;display:flex;justify-content:center;margin-top:2vh}
+
+/* ---- 主欄（整體置中） ---- */
+.main{display:flex;flex-direction:column;align-items:center;text-align:center;
+  width:100%;max-width:640px;margin:0 auto;padding-top:8vh}
+.fade-up{opacity:0;transform:translateY(14px);animation:fadeUp .7s var(--ease) forwards}
+.fade-up.d1{animation-delay:.05s}.fade-up.d2{animation-delay:.13s}
+.fade-up.d3{animation-delay:.21s}.fade-up.d4{animation-delay:.29s}
+@keyframes fadeUp{to{opacity:1;transform:none}}
+
+/* ---- 翻頁時鐘 ---- */
+.clock{display:flex;align-items:center;gap:10px;justify-content:center}
+.flip{
+  position:relative;display:inline-block;
+  border-radius:14px;box-shadow:var(--glass-edge);
+  font-variant-numeric:tabular-nums;font-weight:600;color:#f5f5f8;
+  --fw:112px;--fh:150px;--ff:108px;
+  width:var(--fw);height:var(--fh);font-size:var(--ff);
+}
+.flip.sec{--fw:64px;--fh:86px;--ff:58px;align-self:flex-end;margin-bottom:8px;opacity:.92}
+.flip > div{
+  position:absolute;left:0;width:100%;height:50%;overflow:hidden;
+  display:flex;justify-content:center;background:rgba(20,20,25,.6);
+}
+.flip .upper{top:0;align-items:flex-start;border-radius:14px 14px 0 0;background:rgba(36,36,44,.5);box-shadow:inset 0 1px 0 rgba(255,255,255,.13)}
+.flip .lower{bottom:0;align-items:flex-end;border-radius:0 0 14px 14px;background:rgba(14,14,18,.66)}
+.flip .upper:not(.flap),.flip .lower:not(.flap){backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur)}
+.flip .flap{z-index:3;backface-visibility:hidden;will-change:transform}
+.flip .flap.upper{transform-origin:bottom center}
+.flip .flap.lower{transform-origin:top center;transform:rotateX(90deg)}
+.flip .num{position:absolute;left:0;width:100%;height:var(--fh);line-height:var(--fh);text-align:center;text-shadow:0 2px 12px rgba(0,0,0,.42)}
+.flip .upper .num{top:0}
+.flip .lower .num{bottom:0}
+.flip::after{content:"";position:absolute;left:0;right:0;top:calc(50% - .5px);height:1px;background:rgba(0,0,0,.45);z-index:4}
+.colon{font-size:78px;font-weight:600;color:#e4e4e8;opacity:.7;padding:0 4px;text-shadow:var(--txt-shadow);animation:blink 2s steps(1) infinite}
+@keyframes blink{50%{opacity:.18}}
+
+.date-line{margin-top:22px;color:var(--text);font-size:18px;font-weight:300;letter-spacing:.03em;text-shadow:var(--txt-shadow)}
+.greeting{margin-top:6px;color:var(--muted);font-size:15px;text-shadow:var(--txt-shadow)}
+
+/* ---- 搜尋框 ---- */
+.search-wrap{margin-top:34px;width:100%;max-width:560px}
+.search-box{
+  display:flex;align-items:center;gap:11px;height:56px;padding:0 18px;
+  background:var(--surface);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
+  border:1px solid var(--border);border-radius:999px;box-shadow:var(--glass-edge);
+  transition:.25s var(--ease);
+}
+.search-box:focus-within{
+  border-color:var(--border-strong);
+  box-shadow:var(--glass-edge),0 0 0 4px rgba(126,176,255,.16);
+  transform:translateY(-1px);
+}
+.search-box svg{width:19px;height:19px;color:var(--faint);flex-shrink:0}
+.search-box input{flex:1;background:none;border:none;outline:none;color:var(--text);font-size:16px}
+.search-box input::placeholder{color:var(--faint)}
+
+/* ---- 常用連結 ---- */
+.links{
+  margin-top:36px;width:100%;max-width:620px;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:13px;
+}
+.link-card{
+  position:relative;
+  display:flex;flex-direction:column;align-items:center;gap:9px;padding:16px 8px;
+  border-radius:var(--radius);background:var(--surface);
+  backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
+  border:1px solid var(--border);box-shadow:var(--glass-edge);transition:.22s var(--ease);
+}
+.link-card:hover{border-color:var(--border-strong);transform:translateY(-4px);background:var(--surface-2)}
+.link-del{
+  position:absolute;top:-7px;right:-7px;width:22px;height:22px;border-radius:50%;
+  display:grid;place-items:center;font-size:14px;line-height:1;color:#fff;
+  background:rgba(18,18,22,.92);border:1px solid var(--border-strong);
+  backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
+  opacity:0;transform:scale(.5);transition:.16s var(--ease);z-index:6;cursor:pointer;
+}
+.link-card:hover .link-del{opacity:1;transform:scale(1)}
+.link-del:hover{background:var(--danger);border-color:var(--danger);transform:scale(1.12)}
+.link-ico{
+  width:38px;height:38px;border-radius:11px;display:grid;place-items:center;overflow:hidden;
+  background:var(--surface-2);font-size:17px;font-weight:600;color:var(--muted);
+}
+.link-ico img{width:100%;height:100%;object-fit:cover}
+.link-name{font-size:12px;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.link-card.add{border:1px dashed var(--border-strong);background:rgba(255,255,255,.02);color:var(--faint)}
+.link-card.add:hover{color:var(--text)}
+.link-card.add .link-ico{background:none;font-size:24px;font-weight:300}
+
+/* ===================== 側邊大框 ===================== */
+/* 自動隱藏側邊欄：平時收到右緣外，滑鼠移到右側才滑出 */
+.sidebar{
+  position:fixed;top:0;right:0;height:100vh;z-index:40;
+  display:flex;align-items:center;padding:16px 16px 16px 0;
+  transform:translateX(calc(100% - 58px));  /* 平時露出約 58px 面板邊緣作為提示 */
+  transition:transform .55s var(--ease);
+}
+.sidebar:hover{transform:translateX(0)}
+.sidebar:not(:hover) .panel{opacity:.9}  /* 收合時微透明，hover 點亮 */
+.panel{
+  width:364px;max-height:calc(100vh - 32px);overflow-y:auto;
+  background:var(--surface);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
+  border:1px solid var(--border);border-radius:26px;box-shadow:var(--glass-edge);
+  padding:8px;transition:opacity .4s var(--ease);
+}
+.panel-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 14px 6px;
+}
+.panel-head h2{font-size:12px;font-weight:600;color:var(--faint);letter-spacing:.12em;text-transform:uppercase}
+.section{padding:14px;border-radius:16px;transition:.2s var(--ease)}
+.section + .section{border-top:1px solid var(--border)}
+.sec-title{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--text);margin-bottom:11px}
+.sec-title .ic{font-size:15px;line-height:1}
+.sec-title .src{margin-left:auto;font-size:10.5px;color:var(--faint);font-weight:400}
+.feed-item{
+  display:block;padding:8px 0;font-size:12.5px;color:var(--muted);line-height:1.5;
+  border-top:1px solid var(--border);transition:.16s var(--ease);
+}
+.feed-item:first-of-type{border-top:none}
+.feed-item:hover{color:var(--text);padding-left:4px}
+.feed-item .when{display:block;font-size:10.5px;color:var(--faint);margin-top:2px}
+.muted-note{font-size:11.5px;color:var(--faint);padding:4px 0;line-height:1.5}
+.err{color:var(--danger)}
+
+/* 天氣 section */
+.wx-now{display:flex;align-items:center;gap:14px}
+.wx-ico{font-size:40px;line-height:1}
+.wx-temp{font-size:30px;font-weight:300}
+.wx-meta{font-size:12px;color:var(--muted);line-height:1.5}
+.wx-place{font-size:12px;color:var(--faint);margin-top:2px}
+.wx-outfit{
+  margin-top:11px;font-size:12.5px;color:var(--text);line-height:1.55;
+  background:rgba(106,163,255,.08);border:1px solid rgba(106,163,255,.16);
+  border-radius:11px;padding:9px 11px;
+}
+.wx-outfit b{color:var(--accent);font-weight:600}
+
+/* F1 section */
+.f1-race{font-size:14px;font-weight:600}
+.f1-circuit{font-size:11.5px;color:var(--muted);margin-top:2px}
+.f1-count{font-size:22px;font-weight:300;font-variant-numeric:tabular-nums;margin:9px 0 2px}
+.f1-count small{font-size:12px;color:var(--faint);font-weight:400}
+.f1-when{font-size:11px;color:var(--faint)}
+.f1-standings{margin-top:11px;border-top:1px solid var(--border);padding-top:9px}
+.f1-row{display:flex;gap:8px;font-size:12px;padding:3px 0;color:var(--muted)}
+.f1-row .pos{color:var(--faint);width:15px}
+.f1-row .pts{margin-left:auto;color:var(--text);font-variant-numeric:tabular-nums}
+
+/* ===================== 設定彈窗 ===================== */
+.overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);
+  display:none;align-items:flex-start;justify-content:center;
+  padding:38px 18px;overflow-y:auto;z-index:100;
+  animation:fadeIn .2s var(--ease);
+}
+.overlay.open{display:flex}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal{
+  background:var(--surface-solid);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
+  border:1px solid var(--border-strong);
+  border-radius:22px;box-shadow:var(--shadow);width:100%;max-width:540px;padding:26px;
+  animation:popIn .28s var(--ease);
+}
+@keyframes popIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+.modal h2{font-size:19px;font-weight:600}
+.modal .sub{font-size:12.5px;color:var(--faint);margin:2px 0 20px}
+.bm-modal{max-width:380px}
+.field{margin-bottom:22px}
+.field>label{display:block;font-size:12px;color:var(--muted);margin-bottom:9px;letter-spacing:.04em}
+.input,.select,.textarea{
+  width:100%;background:var(--bg);border:1px solid var(--border-strong);color:var(--text);
+  border-radius:10px;padding:10px 12px;font-size:14px;outline:none;transition:.15s;
+}
+.input:focus,.select:focus,.textarea:focus{border-color:var(--accent)}
+.textarea{resize:vertical;min-height:64px;line-height:1.5}
+.row-edit{display:flex;gap:8px;margin-bottom:8px;align-items:center}
+.row-edit .input{flex:1}
+.row-edit .input.short{flex:.62}
+.del-btn{width:34px;height:34px;flex-shrink:0;border-radius:8px;color:var(--faint);display:grid;place-items:center;transition:.15s}
+.del-btn:hover{color:var(--danger);background:var(--surface-2)}
+.add-row{font-size:13px;color:var(--accent);padding:7px 2px;display:inline-flex;align-items:center;gap:5px}
+.add-row:hover{opacity:.8}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{padding:7px 14px;border-radius:999px;font-size:13px;background:var(--bg);border:1px solid var(--border-strong);color:var(--muted);transition:.15s}
+.seg button.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+.hint{font-size:11px;color:var(--faint);margin-top:7px;line-height:1.6}
+.range{width:100%;accent-color:var(--accent)}
+.sub-panel{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:13px;margin-top:10px}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:6px}
+.btn{padding:10px 18px;border-radius:10px;font-size:14px;font-weight:500;transition:.15s}
+.btn.ghost{color:var(--muted)}
+.btn.ghost:hover{color:var(--text);background:var(--surface-2)}
+.btn.primary{background:var(--text);color:var(--bg)}
+.btn.primary:hover{opacity:.9}
+.gradient-pick{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.gradient-pick .gp{width:46px;height:32px;border-radius:8px;border:2px solid transparent;cursor:pointer}
+.gradient-pick .gp.on{border-color:var(--text)}
+</style>
+</head>
+<body>
+
+<!-- 背景層 -->
+<div id="bgBase" class="bg-layer"></div>
+<div id="bgGradient" class="bg-layer"></div>
+<video id="bgVideo" class="bg-layer" autoplay muted loop playsinline></video>
+<iframe id="bgFrame" class="bg-layer" referrerpolicy="no-referrer"></iframe>
+<div id="bgOverlay" class="bg-layer"></div>
+
+<div class="app">
+  <div class="layout">
+    <!-- 主欄 -->
+    <div class="main">
+      <div class="clock fade-up d1" id="clock"></div>
+      <div class="date-line fade-up d2" id="date"></div>
+      <div class="greeting fade-up d2" id="greeting"></div>
+
+      <form class="search-wrap fade-up d3" id="searchForm">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <input type="text" id="searchInput" placeholder="搜尋 Google，或輸入網址…" autocomplete="off" spellcheck="false">
+        </div>
+      </form>
+
+      <div class="links fade-up d4" id="links"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 側邊大框：貼右緣自動隱藏，滑鼠移到右側滑出 -->
+<div class="sidebar" id="sidebar">
+  <div class="panel">
+    <div class="panel-head">
+      <h2>今日資訊</h2>
+      <div style="display:flex;gap:2px">
+        <button class="icon-btn" id="refreshFeeds" title="重新整理" style="width:32px;height:32px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:17px;height:17px"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+        </button>
+        <button class="icon-btn" id="openSettings" title="設定" style="width:32px;height:32px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:17px;height:17px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
+    </div>
+    <div id="sections"></div>
+  </div>
+</div>
+
+<!-- 新增書籤小視窗 -->
+<div class="overlay" id="bmOverlay">
+  <form class="modal bm-modal" id="bmForm">
+    <h2>新增書籤</h2>
+    <div class="sub">儲存到常用連結</div>
+    <div class="field" style="margin-bottom:14px">
+      <label>名稱（可留空，自動取網域）</label>
+      <input class="input" id="bmName" placeholder="例如：Notion" autocomplete="off">
+    </div>
+    <div class="field" style="margin-bottom:18px">
+      <label>網址</label>
+      <input class="input" id="bmUrl" placeholder="https://… 或 notion.so" autocomplete="off">
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" id="bmCancel" type="button">取消</button>
+      <button class="btn primary" type="submit">新增</button>
+    </div>
+  </form>
+</div>
+
+<!-- 設定彈窗 -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2>設定</h2>
+    <div class="sub">所有設定只儲存在這台瀏覽器上</div>
+
+    <div class="field">
+      <label>稱呼（用於問候語）</label>
+      <input class="input" id="cfgName" placeholder="例如：阿明">
+    </div>
+
+    <div class="field">
+      <label>背景</label>
+      <div class="seg" id="cfgBgType">
+        <button type="button" data-v="gradient">動態漸層</button>
+        <button type="button" data-v="media">本機檔案</button>
+        <button type="button" data-v="iframe">網頁背景</button>
+      </div>
+
+      <div class="sub-panel" id="bgGradientPanel">
+        <label style="font-size:12px;color:var(--muted)">漸層配色</label>
+        <div class="gradient-pick" id="gradientPick"></div>
+      </div>
+
+      <div class="sub-panel" id="bgMediaPanel" style="display:none">
+        <label style="font-size:12px;color:var(--muted)">選擇本機影片或圖片</label>
+        <input class="input" type="file" id="bgFile" accept="video/*,image/*" style="margin-top:8px;padding:8px">
+        <div class="hint" id="bgMediaStatus">影片/圖片會存進瀏覽器（IndexedDB），下次自動載入。建議影片 &lt; 50MB。</div>
+      </div>
+
+      <div class="sub-panel" id="bgIframePanel" style="display:none">
+        <label style="font-size:12px;color:var(--muted)">網頁背景網址 / 路徑</label>
+        <input class="input" id="bgIframeUrl" placeholder="https://… 或 file:///C:/…/index.html" style="margin-top:8px">
+        <div class="hint">
+          <b>Wallpaper Engine：</b><br>
+          • 影片型（.mp4/.webm）→ 改用上方「本機檔案」選該影片。<br>
+          • 網頁型（含 index.html）→ 在此貼上其 index.html 路徑。<br>
+          • 編譯型 scene.pkg → 瀏覽器無法讀取，不支援。
+        </div>
+      </div>
+
+      <label style="font-size:12px;color:var(--muted);margin-top:14px;display:block">背景遮罩暗度</label>
+      <input class="range" type="range" id="bgOverlayRange" min="0" max="80" step="5">
+    </div>
+
+    <div class="field">
+      <label>天氣定位</label>
+      <div class="hint" style="margin-top:0;margin-bottom:8px">預設自動偵測；若拒絕授權，改用下方固定城市。</div>
+      <input class="input" id="cfgCity" placeholder="備援城市，例如：Taipei 或 台北">
+    </div>
+
+    <div class="field">
+      <label>常用連結</label>
+      <div id="cfgLinks"></div>
+      <button class="add-row" id="addLink" type="button">＋ 新增連結</button>
+    </div>
+
+    <div class="field">
+      <label>側邊資訊區塊</label>
+      <div id="cfgSections"></div>
+      <button class="add-row" id="addSection" type="button">＋ 新增區塊</button>
+      <div class="hint">
+        類型：天氣＝自動天氣與穿搭；RSS＝貼上 feed 連結（PTT 看板用 https://www.ptt.cc/atom/看板.xml，可多個用空白分隔）；
+        連結＝常駐連結清單（每行「名稱 | 網址」）；F1＝賽事倒數與積分榜。<br>
+        RSS 兩道過濾：<b>只顯示</b>＝標題須含其一才顯示；<b>排除</b>＝標題含其一就剔除（例如排除「遠傳 電信 Apple Watch」）。
+      </div>
+    </div>
+
+    <div class="field">
+      <label>備份（換電腦／重裝可還原）</label>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn ghost" id="exportCfg" type="button">⬇ 匯出設定</button>
+        <button class="btn ghost" id="importCfg" type="button">⬆ 匯入設定</button>
+        <input type="file" id="importFile" accept="application/json,.json" style="display:none">
+      </div>
+      <div class="hint">把書籤、區塊、背景偏好等存成 JSON 檔備份；換電腦時匯入即可一鍵還原。（本機背景影片檔不含在內）</div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn ghost" id="cancelSettings" type="button">取消</button>
+      <button class="btn primary" id="saveSettings" type="button">儲存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ===================== 設定資料 ===================== */
+const STORE_KEY = "homepage_cfg_v3";
+const CACHE_KEY = "homepage_feedcache_v1";
+const CACHE_TTL = 30 * 60 * 1000;
+
+const GRADIENTS = {
+  midnight: "linear-gradient(125deg,#0b0b10,#10131c,#1a1426,#0d1a1c,#0b0b10)",
+  ocean:    "linear-gradient(125deg,#06121a,#0a2230,#0e3340,#08202c,#06121a)",
+  ember:    "linear-gradient(125deg,#120a0a,#241010,#301414,#1a0d0d,#120a0a)",
+  forest:   "linear-gradient(125deg,#0a120c,#10241a,#143020,#0d1a14,#0a120c)",
+  violet:   "linear-gradient(125deg,#0d0a14,#1a1030,#241445,#140d24,#0d0a14)",
+  mono:     "linear-gradient(125deg,#0a0a0a,#161616,#202020,#121212,#0a0a0a)",
+};
+
+// 學生・AI 優惠：查詢要求「學生 + AI產品 + 優惠詞」；前端再用 include/exclude 精篩
+const STUDENT_NEWS_URL = "https://news.google.com/rss/search?q="+encodeURIComponent("學生 (AI OR ChatGPT OR Gemini OR Claude OR Cursor OR Copilot OR Perplexity OR Notion OR Figma OR JetBrains) (免費 OR 優惠 OR 訂閱 OR 方案 OR 學生版 OR 教育版)")+"&hl=zh-TW&gl=TW&ceid=TW:zh-Hant";
+const STUDENT_INCLUDE = "AI ChatGPT Gemini Claude Cursor Copilot Perplexity Notion Figma JetBrains 學生方案 學生版 教育版";
+const STUDENT_EXCLUDE = "遠傳 中華電信 台灣大 電信 Apple Watch iPad iPhone Mac 購機 筆電 營養午餐 競賽 機器人 天文 自主學習";
+
+const DEFAULTS = {
+  name: "",
+  engine: "google",
+  city: "",
+  bg: { type:"gradient", gradient:"midnight", iframeUrl:"", overlay:35 },
+  links: [
+    { name:"YouTube", url:"https://www.youtube.com" },
+    { name:"Gmail",   url:"https://mail.google.com" },
+    { name:"GitHub",  url:"https://github.com" },
+    { name:"雲端硬碟", url:"https://drive.google.com" },
+    { name:"ChatGPT", url:"https://chatgpt.com" },
+    { name:"Claude",  url:"https://claude.ai" },
+  ],
+  sections: [
+    { type:"weather", title:"天氣・穿搭" },
+    // 租屋：抓套房(Rent_tao)＋分租(Rent_apart)，只留標題含這些地區的貼文
+    { type:"rss", title:"租屋・永和/文山/新店",
+      url:"https://www.ptt.cc/atom/Rent_tao.xml https://www.ptt.cc/atom/Rent_apart.xml",
+      filter:"永和 文山 新店" },
+    // 學生優惠：Google News 鎖定「學生＋AI產品＋優惠詞」，再經 include/exclude 精篩
+    { type:"rss", title:"學生・AI 優惠", url:STUDENT_NEWS_URL, filter:STUDENT_INCLUDE, exclude:STUDENT_EXCLUDE },
+    { type:"links", title:"學生優惠懶人包", items:[
+      { name:"台灣學生免費訂閱指南 2025–2026", url:"https://claude-world.com/zh-tw/articles/taiwan-student-free-subscriptions-guide-2025-2026/" },
+      { name:"GitHub Student Pack", url:"https://education.github.com/pack" },
+      { name:"Google for Education", url:"https://edu.google.com" },
+    ]},
+    { type:"f1", title:"F1 賽事" },
+  ],
+};
+
+let cfg = load();
+save(); // 持久化遷移結果
+function load(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(!raw) return structuredClone(DEFAULTS);
+    const p = JSON.parse(raw);
+    const merged = Object.assign(structuredClone(DEFAULTS), p);
+    merged.bg = Object.assign(structuredClone(DEFAULTS.bg), p.bg||{});
+    migrate(merged);
+    return merged;
+  }catch(e){ return structuredClone(DEFAULTS); }
+}
+function migrate(c){
+  // 一次性：把舊版「學生・AI 優惠」區塊升級為新查詢＋精篩，其他設定（書籤等）原樣保留
+  if(!c.migratedStudentV2 && Array.isArray(c.sections)){
+    c.sections.forEach(s=>{
+      if(s.type==="rss" && /news\.google\.com/.test(s.url||"") && (s.title||"").includes("學生")){
+        s.url=STUDENT_NEWS_URL; s.filter=STUDENT_INCLUDE; s.exclude=STUDENT_EXCLUDE;
+      }
+    });
+    c.migratedStudentV2=true;
+  }
+}
+function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(cfg)); }
+function escapeHtml(s){ return (s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function hostOf(u){ try{ return new URL(u).hostname.replace(/^www\./,""); }catch(e){ return ""; } }
+function normUrl(u){ u=(u||"").trim(); if(!u)return""; return /^https?:\/\//i.test(u)?u:"https://"+u; }
+
+/* ===================== IndexedDB（背景檔案） ===================== */
+function idb(){
+  return new Promise((res,rej)=>{
+    const r = indexedDB.open("homepage",1);
+    r.onupgradeneeded = ()=> r.result.createObjectStore("kv");
+    r.onsuccess = ()=> res(r.result);
+    r.onerror = ()=> rej(r.error);
+  });
+}
+async function idbSet(key,val){ const db=await idb(); return new Promise((res,rej)=>{ const t=db.transaction("kv","readwrite"); t.objectStore("kv").put(val,key); t.oncomplete=res; t.onerror=()=>rej(t.error); }); }
+async function idbGet(key){ const db=await idb(); return new Promise((res,rej)=>{ const t=db.transaction("kv","readonly"); const q=t.objectStore("kv").get(key); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); }); }
+
+/* ===================== 背景套用 ===================== */
+const elBgGradient=document.getElementById("bgGradient");
+const elBgVideo=document.getElementById("bgVideo");
+const elBgFrame=document.getElementById("bgFrame");
+const elBgOverlay=document.getElementById("bgOverlay");
+let curBgObjectURL=null;
+
+async function applyBackground(){
+  elBgOverlay.style.opacity = (cfg.bg.overlay||0)/100;
+  // 先全部隱藏
+  elBgGradient.style.display="none";
+  elBgVideo.style.display="none"; elBgVideo.removeAttribute("src");
+  elBgFrame.style.display="none"; elBgFrame.removeAttribute("src");
+  if(curBgObjectURL){ URL.revokeObjectURL(curBgObjectURL); curBgObjectURL=null; }
+  elBgVideo.style.backgroundImage=""; elBgVideo.poster="";
+
+  if(cfg.bg.type==="gradient"){
+    elBgGradient.style.background = GRADIENTS[cfg.bg.gradient]||GRADIENTS.midnight;
+    elBgGradient.style.backgroundSize="400% 400%";
+    elBgGradient.style.animation="";   // 還原 CSS 動畫（圖片模式曾設為 none）
+    elBgGradient.style.display="block";
+  }
+  else if(cfg.bg.type==="media"){
+    try{
+      const rec = await idbGet("wallpaper");
+      if(rec && rec.blob){
+        curBgObjectURL = URL.createObjectURL(rec.blob);
+        if(rec.kind==="video"){
+          elBgVideo.src = curBgObjectURL; elBgVideo.style.display="block";
+          elBgVideo.play().catch(()=>{});
+        }else{
+          // 用 video 元素呈現圖片不合適，改用獨立背景：借用 gradient 層當圖片容器
+          elBgGradient.style.background = `center/cover no-repeat url("${curBgObjectURL}")`;
+          elBgGradient.style.animation="none";
+          elBgGradient.style.display="block";
+        }
+      }else{
+        elBgGradient.style.display="block"; // 無檔案退回漸層
+      }
+    }catch(e){ elBgGradient.style.display="block"; }
+  }
+  else if(cfg.bg.type==="iframe"){
+    if(cfg.bg.iframeUrl){ elBgFrame.src=cfg.bg.iframeUrl; elBgFrame.style.display="block"; }
+    else elBgGradient.style.display="block";
+  }
+}
+
+/* ===================== 翻頁時鐘 ===================== */
+function buildFlip(extraClass){
+  const f=document.createElement("div");
+  f.className="flip"+(extraClass?(" "+extraClass):"");
+  f.innerHTML=`
+    <div class="upper"><span class="num">00</span></div>
+    <div class="lower"><span class="num">00</span></div>
+    <div class="flap upper"><span class="num">00</span></div>
+    <div class="flap lower"><span class="num">00</span></div>`;
+  f.dataset.v="00";
+  return f;
+}
+function flipTo(card,val){
+  if(card.dataset.v===val) return;
+  const old=card.dataset.v; card.dataset.v=val;
+  const upper=card.querySelector(".upper:not(.flap) .num");
+  const lower=card.querySelector(".lower:not(.flap) .num");
+  const fUp=card.querySelector(".flap.upper"); const fUpN=fUp.querySelector(".num");
+  const fLo=card.querySelector(".flap.lower"); const fLoN=fLo.querySelector(".num");
+  fUpN.textContent=old;       // 上翻片顯示舊值
+  upper.textContent=val;      // 靜態上半立即換新（翻片落下後露出）
+  fLoN.textContent=val;       // 下翻片顯示新值
+  fUp.style.transform="rotateX(0deg)";
+  fLo.style.transform="rotateX(90deg)";
+  const a1=fUp.animate([{transform:"rotateX(0deg)"},{transform:"rotateX(-90deg)"}],{duration:280,easing:"cubic-bezier(.4,0,.6,1)",fill:"forwards"});
+  a1.finished.then(()=>{
+    const a2=fLo.animate([{transform:"rotateX(90deg)"},{transform:"rotateX(0deg)"}],{duration:280,easing:"cubic-bezier(.4,.2,.2,1)",fill:"forwards"});
+    a2.finished.then(()=>{
+      lower.textContent=val;            // 靜態下半換新
+      fUpN.textContent=val; fUp.style.transform="rotateX(0deg)";
+      fLo.style.transform="rotateX(90deg)";
+    });
+  }).catch(()=>{});
+}
+const clockEl=document.getElementById("clock");
+const cH=buildFlip(), cM=buildFlip(), cS=buildFlip("sec");
+clockEl.append(cH, colon(), cM, colon(), cS);
+function colon(){ const s=document.createElement("span"); s.className="colon"; s.textContent=":"; return s; }
+
+const WEEK=["週日","週一","週二","週三","週四","週五","週六"];
+function tick(){
+  const n=new Date();
+  flipTo(cH,String(n.getHours()).padStart(2,"0"));
+  flipTo(cM,String(n.getMinutes()).padStart(2,"0"));
+  flipTo(cS,String(n.getSeconds()).padStart(2,"0"));
+  document.getElementById("date").textContent=`${n.getFullYear()}年${n.getMonth()+1}月${n.getDate()}日 ${WEEK[n.getDay()]}`;
+  const h=n.getHours();
+  let g="夜深了，早點休息";
+  if(h>=5&&h<12)g="早安"; else if(h>=12&&h<18)g="午安"; else if(h>=18&&h<23)g="晚安";
+  document.getElementById("greeting").textContent=cfg.name?`${g}，${cfg.name}`:g;
+  updateF1Countdown();
+}
+
+/* ===================== 搜尋 ===================== */
+const searchInput=document.getElementById("searchInput");
+document.getElementById("searchForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const q=searchInput.value.trim(); if(!q)return;
+  if(/^https?:\/\//i.test(q)||/^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(q)){
+    location.href=/^https?:\/\//i.test(q)?q:"https://"+q; return;
+  }
+  location.href="https://www.google.com/search?q="+encodeURIComponent(q);
+});
+
+/* ===================== 常用連結 ===================== */
+function faviconUrl(url){ try{ return `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=64`; }catch(e){ return ""; } }
+function renderLinks(){
+  const box=document.getElementById("links"); box.innerHTML="";
+  cfg.links.forEach((l,idx)=>{
+    const a=document.createElement("a");
+    a.className="link-card"; a.href=l.url; a.title=l.url;
+    const ico=document.createElement("div"); ico.className="link-ico";
+    const img=new Image(); img.src=faviconUrl(l.url);
+    img.onerror=()=>{ico.textContent=(l.name||"?").charAt(0).toUpperCase();};
+    ico.appendChild(img);
+    const name=document.createElement("div"); name.className="link-name"; name.textContent=l.name;
+    const del=document.createElement("span"); del.className="link-del"; del.textContent="×"; del.title="刪除書籤";
+    del.onclick=e=>{ e.preventDefault(); e.stopPropagation(); deleteLink(idx); };
+    a.append(ico,name,del); box.appendChild(a);
+  });
+  const add=document.createElement("button");
+  add.className="link-card add";
+  add.innerHTML=`<div class="link-ico">＋</div><div class="link-name">新增</div>`;
+  add.onclick=openBookmarkAdd; box.appendChild(add);
+}
+function deleteLink(idx){ cfg.links.splice(idx,1); save(); renderLinks(); }
+
+/* ---- 新增書籤小視窗 ---- */
+const bmOverlay=document.getElementById("bmOverlay");
+function openBookmarkAdd(){
+  document.getElementById("bmName").value="";
+  document.getElementById("bmUrl").value="";
+  bmOverlay.classList.add("open");
+  setTimeout(()=>document.getElementById("bmUrl").focus(),60);
+}
+function closeBookmarkAdd(){ bmOverlay.classList.remove("open"); }
+document.getElementById("bmForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const url=normUrl(document.getElementById("bmUrl").value);
+  if(!url){ document.getElementById("bmUrl").focus(); return; }
+  const name=document.getElementById("bmName").value.trim()||hostOf(url);
+  cfg.links.push({name,url}); save(); renderLinks(); closeBookmarkAdd();
+});
+document.getElementById("bmCancel").onclick=closeBookmarkAdd;
+bmOverlay.addEventListener("click",e=>{ if(e.target===bmOverlay)closeBookmarkAdd(); });
+
+/* ===================== 取資料工具 ===================== */
+// 多個 CORS proxy 策略 + 重試退避（allorigins 偶爾限流，需備援）
+const PROXY_STRATEGIES=[
+  async u=>{ const r=await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,{cache:"no-store"}); if(!r.ok)throw new Error(r.status); return await r.text(); },
+  async u=>{ const r=await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,{cache:"no-store"}); if(!r.ok)throw new Error(r.status); const j=await r.json(); if(!j||!j.contents)throw new Error("no contents"); return j.contents; },
+  async u=>{ const r=await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}`,{cache:"no-store"}); if(!r.ok)throw new Error(r.status); return await r.text(); },
+];
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function fetchText(url){
+  let err;
+  for(let attempt=0;attempt<2;attempt++){
+    for(const strat of PROXY_STRATEGIES){
+      try{ const t=await strat(url); if(t&&t.length>80) return t; }catch(e){ err=e; }
+    }
+    await sleep(500*(attempt+1)); // 退避後再試一輪
+  }
+  throw err||new Error("fetch failed");
+}
+function getCache(){ try{return JSON.parse(localStorage.getItem(CACHE_KEY)||"{}");}catch(e){return{};} }
+function setCache(c){ localStorage.setItem(CACHE_KEY,JSON.stringify(c)); }
+function relTime(d){
+  if(!d||isNaN(d))return"";
+  const m=Math.round((Date.now()-d.getTime())/60000);
+  if(m<1)return"剛剛"; if(m<60)return m+" 分鐘前";
+  const h=Math.round(m/60); if(h<24)return h+" 小時前";
+  const day=Math.round(h/24); if(day<30)return day+" 天前";
+  return `${d.getMonth()+1}/${d.getDate()}`;
+}
+function parseFeed(xml){
+  const doc=new DOMParser().parseFromString(xml,"text/xml");
+  const items=[];
+  doc.querySelectorAll("item").forEach(it=>items.push({
+    title:(it.querySelector("title")?.textContent||"").trim(),
+    link:(it.querySelector("link")?.textContent||"").trim(),
+    date:new Date(it.querySelector("pubDate")?.textContent||""),
+  }));
+  if(items.length===0){
+    doc.querySelectorAll("entry").forEach(it=>{
+      const lk=it.querySelector("link");
+      items.push({
+        title:(it.querySelector("title")?.textContent||"").trim(),
+        link:lk?.getAttribute("href")||"",
+        date:new Date(it.querySelector("updated")?.textContent||it.querySelector("published")?.textContent||""),
+      });
+    });
+  }
+  return items;
+}
+
+/* ===================== 側邊區塊渲染 ===================== */
+function renderSections(){
+  const box=document.getElementById("sections"); box.innerHTML="";
+  if(!cfg.sections.length){
+    box.innerHTML=`<div class="section"><div class="muted-note">尚未新增區塊，點右上角齒輪設定。</div></div>`;
+    return;
+  }
+  cfg.sections.forEach(sec=>{
+    const el=document.createElement("div"); el.className="section";
+    box.appendChild(el);
+    if(sec.type==="weather") renderWeather(el,sec);
+    else if(sec.type==="f1") renderF1(el,sec);
+    else if(sec.type==="links") renderLinksSection(el,sec);
+    else renderRss(el,sec);
+  });
+}
+function secHeader(icon,title,src){
+  return `<div class="sec-title"><span class="ic">${icon}</span>${escapeHtml(title)}${src?`<span class="src">${escapeHtml(src)}</span>`:""}</div>`;
+}
+
+/* ---- RSS 區塊（支援多來源合併＋關鍵字過濾） ---- */
+async function renderRss(el,sec){
+  const urls=(sec.url||"").split(/[\s,]+/).filter(Boolean);
+  const kws=(sec.filter||"").split(/[\s,]+/).filter(Boolean);
+  const ex=(sec.exclude||"").split(/[\s,]+/).filter(Boolean);
+  const isNews=urls.some(u=>u.includes("news.google.com"));
+  const src=isNews?"Google News":(urls.length>1?(urls.length+" 來源"):hostOf(urls[0]||""));
+  el.innerHTML=secHeader(isNews?"🎓":"📰",sec.title||"RSS",src)+`<div class="bd"><div class="muted-note">載入中…</div></div>`;
+  const bd=el.querySelector(".bd");
+  const cacheKey=urls.join("|");
+
+  const show=raw=>{
+    let items=raw.map(i=>({...i,date:new Date(i.date)}));
+    if(kws.length) items=items.filter(it=>kws.some(k=>it.title.includes(k)));       // 只顯示含關鍵字
+    if(ex.length)  items=items.filter(it=>!ex.some(k=>it.title.includes(k)));        // 排除黑名單
+    items=items.slice(0, (kws.length||ex.length)?8:6);
+    if(!items.length){ bd.innerHTML=`<div class="muted-note">目前沒有符合的項目${kws.length?`（關鍵字：${escapeHtml(kws.join("、"))}）`:""}</div>`; return; }
+    paintItems(bd,items);
+  };
+
+  const cache=getCache(), c=cache[cacheKey];
+  if(c && Date.now()-c.t<CACHE_TTL){ show(c.items); return; }
+  try{
+    let merged=[], okCount=0;
+    for(const u of urls){                       // 依序抓取，避免同時打 proxy 被限流
+      try{ merged=merged.concat(parseFeed(await fetchText(u))); okCount++; }catch(_){}
+    }
+    if(!okCount) throw new Error("all failed");
+    if(!merged.length) throw new Error("empty");
+    merged.sort((a,b)=>(b.date?.getTime?.()||0)-(a.date?.getTime?.()||0));
+    merged=merged.slice(0,25);
+    cache[cacheKey]={t:Date.now(),items:merged.map(i=>({title:i.title,link:i.link,date:i.date}))};
+    setCache(cache);
+    show(merged);
+  }catch(e){ bd.innerHTML=`<div class="muted-note err">載入失敗，請確認連結是否正確</div>`; }
+}
+function paintItems(bd,items){
+  bd.innerHTML="";
+  items.forEach(i=>{
+    const a=document.createElement("a");
+    a.className="feed-item"; a.href=i.link||"#"; a.target="_blank"; a.rel="noopener";
+    a.innerHTML=`${escapeHtml(i.title)}<span class="when">${relTime(i.date)}</span>`;
+    bd.appendChild(a);
+  });
+}
+
+/* ---- 連結清單區塊 ---- */
+function renderLinksSection(el,sec){
+  el.innerHTML=secHeader("🔖",sec.title||"連結","");
+  (sec.items||[]).forEach(i=>{
+    const a=document.createElement("a");
+    a.className="feed-item"; a.href=i.url; a.target="_blank"; a.rel="noopener";
+    a.textContent=i.name||i.url;
+    el.appendChild(a);
+  });
+  if(!(sec.items||[]).length) el.insertAdjacentHTML("beforeend",`<div class="muted-note">尚無連結</div>`);
+}
+
+/* ---- 天氣區塊 ---- */
+const WMO={0:["☀️","晴"],1:["🌤️","大致晴"],2:["⛅","多雲"],3:["☁️","陰"],
+  45:["🌫️","霧"],48:["🌫️","霧凇"],51:["🌦️","毛毛雨"],53:["🌦️","毛毛雨"],55:["🌦️","毛毛雨"],
+  56:["🌧️","凍雨"],57:["🌧️","凍雨"],61:["🌧️","小雨"],63:["🌧️","中雨"],65:["🌧️","大雨"],
+  66:["🌧️","凍雨"],67:["🌧️","凍雨"],71:["🌨️","小雪"],73:["🌨️","中雪"],75:["🌨️","大雪"],
+  77:["🌨️","霰"],80:["🌦️","陣雨"],81:["🌦️","陣雨"],82:["⛈️","強陣雨"],85:["🌨️","陣雪"],86:["🌨️","陣雪"],
+  95:["⛈️","雷雨"],96:["⛈️","雷雨夾雹"],99:["⛈️","強雷雨"]};
+function outfit(temp,rainProb,wind,code){
+  let s;
+  if(temp>=30)s="酷熱，短袖透氣衣物、注意防曬補水";
+  else if(temp>=26)s="炎熱，短袖、輕薄衣物";
+  else if(temp>=22)s="溫暖，短袖或薄長袖";
+  else if(temp>=18)s="舒適微涼，薄長袖或薄外套";
+  else if(temp>=14)s="偏涼，外套、針織衫";
+  else if(temp>=10)s="寒冷，厚外套保暖";
+  else s="嚴寒，厚外套、圍巾手套";
+  const ex=[];
+  if(rainProb>=50||(code>=51&&code<=99))ex.push("記得帶傘");
+  if(wind>=30)ex.push("風大，加件防風外套");
+  return s+(ex.length?"，"+ex.join("、"):"");
+}
+async function renderWeather(el,sec){
+  el.innerHTML=secHeader("🌤️",sec.title||"天氣","")+`<div class="bd"><div class="muted-note">取得位置中…</div></div>`;
+  const bd=el.querySelector(".bd");
+  try{
+    const {lat,lon,place}=await getLocation();
+    const wx=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m,apparent_temperature&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=1`).then(r=>r.json());
+    const cur=wx.current, day=wx.daily;
+    const [ic,desc]=WMO[cur.weather_code]||["🌡️","—"];
+    const rp=day.precipitation_probability_max?.[0]??0;
+    bd.innerHTML=`
+      <div class="wx-now">
+        <div class="wx-ico">${ic}</div>
+        <div>
+          <div class="wx-temp">${Math.round(cur.temperature_2m)}°</div>
+          <div class="wx-meta">${desc}・體感 ${Math.round(cur.apparent_temperature)}°<br>${Math.round(day.temperature_2m_min[0])}° / ${Math.round(day.temperature_2m_max[0])}°・降雨 ${rp}%</div>
+        </div>
+      </div>
+      <div class="wx-place">${escapeHtml(place||"")}・濕度 ${cur.relative_humidity_2m}%・風 ${Math.round(cur.wind_speed_10m)}km/h</div>
+      <div class="wx-outfit"><b>穿搭建議</b>：${escapeHtml(outfit(cur.temperature_2m,rp,cur.wind_speed_10m,cur.weather_code))}</div>`;
+  }catch(e){ bd.innerHTML=`<div class="muted-note err">無法取得天氣（${escapeHtml(e.message||"")}）。可於設定填固定城市。</div>`; }
+}
+function getLocation(){
+  return new Promise((resolve,reject)=>{
+    let settled=false;
+    const done=v=>{ if(!settled){ settled=true; resolve(v); } };
+
+    // 3) 備援城市（設定中手動填）
+    const useCity=async()=>{
+      if(!cfg.city) return settled||(settled=true,reject(new Error("無法定位，請於設定填固定城市")));
+      try{
+        const g=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cfg.city)}&count=1&language=zh`).then(r=>r.json());
+        const r0=g.results?.[0]; if(!r0) throw new Error("找不到城市");
+        done({lat:r0.latitude,lon:r0.longitude,place:r0.name+(r0.admin1?("・"+r0.admin1):"")});
+      }catch(e){ if(!settled){ settled=true; reject(e); } }
+    };
+
+    // 2) IP 定位（免權限，file:// 也能用）
+    const useIP=async()=>{
+      try{
+        const j=await fetch("https://ipwho.is/").then(r=>r.json());
+        if(j&&j.success!==false&&j.latitude)
+          return done({lat:j.latitude,lon:j.longitude,place:[j.city,j.region].filter(Boolean).join("・")});
+        throw new Error("ipwho");
+      }catch(_){
+        try{
+          const j2=await fetch("https://ipapi.co/json/").then(r=>r.json());
+          if(j2&&j2.latitude)
+            return done({lat:j2.latitude,lon:j2.longitude,place:[j2.city,j2.region].filter(Boolean).join("・")});
+        }catch(__){}
+        useCity();
+      }
+    };
+
+    // 1) 瀏覽器精準定位（HTTPS 下最準）；file:// 定位常被擋，直接用 IP 免彈窗
+    if(location.protocol==="file:"||!navigator.geolocation) return useIP();
+    navigator.geolocation.getCurrentPosition(async pos=>{
+      const lat=pos.coords.latitude, lon=pos.coords.longitude;
+      let place="";
+      try{
+        const rg=await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=zh`).then(r=>r.json());
+        place=[rg.city||rg.locality, rg.principalSubdivision].filter(Boolean).join("・");
+      }catch(_){}
+      done({lat,lon,place});
+    }, ()=>useIP(), {timeout:6000, maximumAge:600000});
+  });
+}
+
+/* ---- F1 區塊 ---- */
+let f1NextTime=null;
+async function renderF1(el,sec){
+  el.innerHTML=secHeader("🏎️",sec.title||"F1 賽事","Jolpica")+`<div class="bd"><div class="muted-note">載入中…</div></div>`;
+  const bd=el.querySelector(".bd");
+  try{
+    const [nx,st]=await Promise.all([
+      fetch("https://api.jolpi.ca/ergast/f1/current/next.json").then(r=>r.json()),
+      fetch("https://api.jolpi.ca/ergast/f1/current/driverstandings.json").then(r=>r.json()),
+    ]);
+    const race=nx?.MRData?.RaceTable?.Races?.[0];
+    const stand=st?.MRData?.StandingsTable?.StandingsLists?.[0]?.DriverStandings||[];
+    let html="";
+    if(race){
+      f1NextTime=new Date(`${race.date}T${race.time||"00:00:00Z"}`);
+      const loc=race.Circuit?.Location;
+      html+=`<div class="f1-race">${escapeHtml(race.raceName)}</div>
+        <div class="f1-circuit">${escapeHtml(race.Circuit?.circuitName||"")}・${escapeHtml(loc?.locality||"")}, ${escapeHtml(loc?.country||"")}</div>
+        <div class="f1-count" id="f1count">—</div>
+        <div class="f1-when">${f1NextTime.toLocaleString("zh-TW",{month:"long",day:"numeric",hour:"2-digit",minute:"2-digit"})}</div>`;
+    }else{ f1NextTime=null; html+=`<div class="f1-circuit">本季賽事已結束</div>`; }
+    if(stand.length){
+      html+=`<div class="f1-standings">`;
+      stand.slice(0,3).forEach((d,i)=>{
+        html+=`<div class="f1-row"><span class="pos">${i+1}</span><span>${escapeHtml(`${d.Driver?.givenName||""} ${d.Driver?.familyName||""}`.trim())}</span><span class="pts">${d.points}</span></div>`;
+      });
+      html+=`</div>`;
+    }
+    bd.innerHTML=html; updateF1Countdown();
+  }catch(e){ bd.innerHTML=`<div class="muted-note err">F1 資料載入失敗</div>`; }
+}
+function updateF1Countdown(){
+  const el=document.getElementById("f1count"); if(!el||!f1NextTime)return;
+  let d=f1NextTime.getTime()-Date.now();
+  if(d<=0){ el.innerHTML=`<small>進行中 / 已開始</small>`; return; }
+  const dd=Math.floor(d/864e5); d-=dd*864e5;
+  const hh=Math.floor(d/36e5); d-=hh*36e5;
+  const mm=Math.floor(d/6e4);
+  el.innerHTML=`${dd}<small>天</small> ${hh}<small>時</small> ${mm}<small>分</small>`;
+}
+
+document.getElementById("refreshFeeds").addEventListener("click",()=>{ localStorage.removeItem(CACHE_KEY); renderSections(); });
+
+/* ===================== 設定彈窗 ===================== */
+const overlay=document.getElementById("overlay");
+function openSettings(){
+  document.getElementById("cfgName").value=cfg.name||"";
+  document.getElementById("cfgCity").value=cfg.city||"";
+  setSeg("cfgBgType",cfg.bg.type);
+  syncBgPanels();
+  document.getElementById("bgOverlayRange").value=cfg.bg.overlay??35;
+  document.getElementById("bgIframeUrl").value=cfg.bg.iframeUrl||"";
+  renderGradientPick();
+  // 連結
+  const lc=document.getElementById("cfgLinks"); lc.innerHTML="";
+  cfg.links.forEach(l=>lc.appendChild(linkRow(l.name,l.url)));
+  // 區塊
+  const sc=document.getElementById("cfgSections"); sc.innerHTML="";
+  cfg.sections.forEach(s=>sc.appendChild(sectionRow(s)));
+  overlay.classList.add("open");
+}
+function closeSettings(){ overlay.classList.remove("open"); }
+function setSeg(id,val){ document.querySelectorAll(`#${id} button`).forEach(b=>b.classList.toggle("on",b.dataset.v===val)); }
+function segVal(id){ return document.querySelector(`#${id} button.on`)?.dataset.v; }
+document.querySelectorAll("#cfgBgType button").forEach(b=>{
+  b.onclick=()=>{ b.parentElement.querySelectorAll("button").forEach(x=>x.classList.remove("on")); b.classList.add("on");
+    if(b.parentElement.id==="cfgBgType") syncBgPanels(); };
+});
+function syncBgPanels(){
+  const t=segVal("cfgBgType")||"gradient";
+  document.getElementById("bgGradientPanel").style.display=t==="gradient"?"":"none";
+  document.getElementById("bgMediaPanel").style.display=t==="media"?"":"none";
+  document.getElementById("bgIframePanel").style.display=t==="iframe"?"":"none";
+}
+function renderGradientPick(){
+  const box=document.getElementById("gradientPick"); box.innerHTML="";
+  Object.entries(GRADIENTS).forEach(([k,v])=>{
+    const d=document.createElement("div"); d.className="gp"+(cfg.bg.gradient===k?" on":"");
+    d.style.background=v; d.style.backgroundSize="200% 200%"; d.title=k;
+    d.onclick=()=>{ box.querySelectorAll(".gp").forEach(x=>x.classList.remove("on")); d.classList.add("on"); d.dataset.sel="1"; cfg.bg.gradient=k; };
+    box.appendChild(d);
+  });
+}
+let pendingBgFile=null;
+document.getElementById("bgFile").addEventListener("change",e=>{
+  const f=e.target.files?.[0]; if(!f)return;
+  pendingBgFile={blob:f,kind:f.type.startsWith("video")?"video":"image"};
+  document.getElementById("bgMediaStatus").textContent=`已選擇：${f.name}（${(f.size/1048576).toFixed(1)}MB）儲存後生效`;
+});
+
+function delBtn(fn){
+  const b=document.createElement("button"); b.className="del-btn"; b.type="button"; b.title="刪除";
+  b.innerHTML=`<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>`;
+  b.onclick=fn; return b;
+}
+function linkRow(name="",url=""){
+  const r=document.createElement("div"); r.className="row-edit";
+  r.innerHTML=`<input class="input short" placeholder="名稱" value="${escapeHtml(name)}"><input class="input" placeholder="https://…" value="${escapeHtml(url)}">`;
+  r.appendChild(delBtn(()=>r.remove())); return r;
+}
+function sectionRow(sec={type:"rss"}){
+  const wrap=document.createElement("div");
+  wrap.style.cssText="border:1px solid var(--border);border-radius:11px;padding:10px;margin-bottom:9px";
+  const top=document.createElement("div"); top.className="row-edit"; top.style.marginBottom="6px";
+  const sel=document.createElement("select"); sel.className="select"; sel.style.flex=".7";
+  sel.innerHTML=`<option value="weather">天氣</option><option value="rss">RSS</option><option value="links">連結</option><option value="f1">F1</option>`;
+  sel.value=sec.type||"rss";
+  const title=document.createElement("input"); title.className="input"; title.placeholder="標題"; title.value=sec.title||"";
+  top.append(sel,title,delBtn(()=>wrap.remove()));
+  const extra=document.createElement("div");
+  const urlIn=document.createElement("input"); urlIn.className="input"; urlIn.placeholder="RSS 連結（可多個，用空白分隔）"; urlIn.value=sec.url||"";
+  const filterIn=document.createElement("input"); filterIn.className="input"; filterIn.style.marginTop="6px";
+  filterIn.placeholder="只顯示含這些關鍵字（空白分隔，可留空）"; filterIn.value=sec.filter||"";
+  const excludeIn=document.createElement("input"); excludeIn.className="input"; excludeIn.style.marginTop="6px";
+  excludeIn.placeholder="排除含這些關鍵字（空白分隔，可留空）"; excludeIn.value=sec.exclude||"";
+  const itemsIn=document.createElement("textarea"); itemsIn.className="textarea"; itemsIn.placeholder="每行一筆：名稱 | 網址";
+  itemsIn.value=(sec.items||[]).map(i=>`${i.name} | ${i.url}`).join("\n");
+  function sync(){
+    const r=sel.value==="rss";
+    urlIn.style.display=r?"":"none"; filterIn.style.display=r?"":"none"; excludeIn.style.display=r?"":"none";
+    itemsIn.style.display=sel.value==="links"?"":"none";
+  }
+  sel.onchange=sync; extra.append(urlIn,filterIn,excludeIn,itemsIn); wrap.append(top,extra); sync();
+  wrap._read=()=>{
+    const t=sel.value, o={type:t,title:title.value.trim()};
+    if(t==="rss"){ o.url=urlIn.value.trim(); o.filter=filterIn.value.trim(); o.exclude=excludeIn.value.trim(); }
+    if(t==="links")o.items=itemsIn.value.split("\n").map(l=>{const[n,u]=l.split("|");return{name:(n||"").trim(),url:(u||"").trim()};}).filter(x=>x.url);
+    return o;
+  };
+  return wrap;
+}
+document.getElementById("addLink").onclick=()=>document.getElementById("cfgLinks").appendChild(linkRow());
+document.getElementById("addSection").onclick=()=>document.getElementById("cfgSections").appendChild(sectionRow());
+
+document.getElementById("saveSettings").onclick=async()=>{
+  cfg.name=document.getElementById("cfgName").value.trim();
+  cfg.city=document.getElementById("cfgCity").value.trim();
+  cfg.bg.type=segVal("cfgBgType")||"gradient";
+  cfg.bg.overlay=+document.getElementById("bgOverlayRange").value;
+  cfg.bg.iframeUrl=document.getElementById("bgIframeUrl").value.trim();
+  const onGp=document.querySelector("#gradientPick .gp.on"); if(onGp)cfg.bg.gradient=onGp.title;
+  if(pendingBgFile){ try{ await idbSet("wallpaper",pendingBgFile);}catch(e){alert("背景檔案儲存失敗，可能檔案太大");} pendingBgFile=null; }
+  cfg.links=[...document.querySelectorAll("#cfgLinks .row-edit")].map(r=>{const[n,u]=r.querySelectorAll("input");return{name:n.value.trim()||hostOf(u.value),url:u.value.trim()};}).filter(l=>l.url);
+  cfg.sections=[...document.querySelectorAll("#cfgSections > div")].map(w=>w._read?w._read():null).filter(Boolean);
+  save();
+  closeSettings();
+  await applyBackground();
+  renderLinks(); renderSections();
+};
+
+/* ---- 設定匯出 / 匯入（備份與還原）---- */
+document.getElementById("exportCfg").onclick=()=>{
+  const blob=new Blob([JSON.stringify(cfg,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download="homepage-settings.json"; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+};
+document.getElementById("importCfg").onclick=()=>document.getElementById("importFile").click();
+document.getElementById("importFile").addEventListener("change",e=>{
+  const f=e.target.files?.[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const data=JSON.parse(r.result);
+      cfg=Object.assign(structuredClone(DEFAULTS),data);
+      cfg.bg=Object.assign(structuredClone(DEFAULTS.bg),data.bg||{});
+      save(); applyBackground(); renderLinks(); renderSections();
+      openSettings();          // 重新填入表單，顯示匯入後的值
+      alert("設定已匯入 ✓");
+    }catch(err){ alert("匯入失敗：檔案格式不正確"); }
+  };
+  r.readAsText(f); e.target.value="";   // 允許重複匯入同一檔
+});
+
+document.getElementById("openSettings").onclick=openSettings;
+document.getElementById("cancelSettings").onclick=closeSettings;
+overlay.addEventListener("click",e=>{ if(e.target===overlay)closeSettings(); });
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"){ closeSettings(); closeBookmarkAdd(); }
+  const anyOpen=overlay.classList.contains("open")||bmOverlay.classList.contains("open");
+  if(e.key==="/"&&document.activeElement!==searchInput&&!anyOpen){ e.preventDefault(); searchInput.focus(); }
+});
+
+/* ===================== 啟動 ===================== */
+applyBackground();
+renderLinks();
+renderSections();
+tick();
+setInterval(tick,1000);
+setTimeout(()=>searchInput.focus(),400);
+</script>
+</body>
+</html>
