@@ -655,14 +655,18 @@ const ICON_OVERRIDES={
   "calendar.google.com":"https://www.gstatic.com/images/branding/product/2x/calendar_2020q4_48dp.png",
   "meet.google.com":"https://www.gstatic.com/images/branding/product/2x/meet_2020q4_48dp.png",
   "keep.google.com":"https://www.gstatic.com/images/branding/product/2x/keep_2020q4_48dp.png",
+  // 台科 moodle：用 repo 內的校徽（學校網址路徑會變，本機收藏最穩定）
+  "moodle.ntust.edu.tw":"icons/ntust.ico",
+  "moodle2.ntust.edu.tw":"icons/ntust.ico",
 };
-// 依序嘗試的圖示候選：官方 logo → DuckDuckGo → Google s2
+// 依序嘗試的圖示候選：指定圖 → DuckDuckGo → Google s2 → 網站自身 favicon.ico
 function iconCandidates(url){
   let host=""; try{ host=new URL(url).hostname; }catch(e){ return []; }
   const list=[];
   if(ICON_OVERRIDES[host]) list.push(ICON_OVERRIDES[host]);
   list.push(`https://icons.duckduckgo.com/ip3/${host}.ico`);
   list.push(`https://www.google.com/s2/favicons?domain=${host}&sz=64`);
+  try{ list.push(new URL(url).origin+"/favicon.ico"); }catch(e){}
   return list;
 }
 function renderLinks(){
