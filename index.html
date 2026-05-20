@@ -646,16 +646,36 @@ document.getElementById("searchForm").addEventListener("submit",e=>{
 });
 
 /* ===================== 常用連結 ===================== */
-function faviconUrl(url){ try{ return `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=64`; }catch(e){ return ""; } }
+// 共用網域的 Google 服務：用官方產品 logo（favicon 服務只會回傳通用 Google G）
+const ICON_OVERRIDES={
+  "mail.google.com":"https://www.gstatic.com/images/branding/product/2x/gmail_2020q4_48dp.png",
+  "drive.google.com":"https://www.gstatic.com/images/branding/product/2x/drive_2020q4_48dp.png",
+  "docs.google.com":"https://www.gstatic.com/images/branding/product/2x/docs_2020q4_48dp.png",
+  "sheets.google.com":"https://www.gstatic.com/images/branding/product/2x/sheets_2020q4_48dp.png",
+  "calendar.google.com":"https://www.gstatic.com/images/branding/product/2x/calendar_2020q4_48dp.png",
+  "meet.google.com":"https://www.gstatic.com/images/branding/product/2x/meet_2020q4_48dp.png",
+  "keep.google.com":"https://www.gstatic.com/images/branding/product/2x/keep_2020q4_48dp.png",
+};
+// 依序嘗試的圖示候選：官方 logo → DuckDuckGo → Google s2
+function iconCandidates(url){
+  let host=""; try{ host=new URL(url).hostname; }catch(e){ return []; }
+  const list=[];
+  if(ICON_OVERRIDES[host]) list.push(ICON_OVERRIDES[host]);
+  list.push(`https://icons.duckduckgo.com/ip3/${host}.ico`);
+  list.push(`https://www.google.com/s2/favicons?domain=${host}&sz=64`);
+  return list;
+}
 function renderLinks(){
   const box=document.getElementById("links"); box.innerHTML="";
   cfg.links.forEach((l,idx)=>{
     const a=document.createElement("a");
     a.className="link-card"; a.href=l.url; a.title=l.url;
     const ico=document.createElement("div"); ico.className="link-ico";
-    const img=new Image(); img.src=faviconUrl(l.url);
-    img.onerror=()=>{ico.textContent=(l.name||"?").charAt(0).toUpperCase();};
-    ico.appendChild(img);
+    const cands=iconCandidates(l.url); let ci=0;
+    const img=new Image();
+    const tryNext=()=>{ if(ci<cands.length) img.src=cands[ci++]; else ico.textContent=(l.name||"?").charAt(0).toUpperCase(); };
+    img.onerror=tryNext;
+    ico.appendChild(img); tryNext();
     const name=document.createElement("div"); name.className="link-name"; name.textContent=l.name;
     const del=document.createElement("span"); del.className="link-del"; del.textContent="×"; del.title="刪除書籤";
     del.onclick=e=>{ e.preventDefault(); e.stopPropagation(); deleteLink(idx); };
