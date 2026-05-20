@@ -447,7 +447,8 @@ input,select,textarea{font-family:inherit}
 /* ===================== 設定資料 ===================== */
 const STORE_KEY = "homepage_cfg_v3";
 const CACHE_KEY = "homepage_feedcache_v1";
-const CACHE_TTL = 30 * 60 * 1000;
+// 本地日期字串（給 RSS「每天只爬一次」用）
+function ymd(){ const d=new Date(); return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
 
 const GRADIENTS = {
   midnight: "linear-gradient(125deg,#0b0b10,#10131c,#1a1426,#0d1a1c,#0b0b10)",
@@ -800,8 +801,9 @@ async function renderRss(el,sec){
     paintItems(bd,items);
   };
 
+  const today=ymd();
   const cache=getCache(), c=cache[cacheKey];
-  if(c && Date.now()-c.t<CACHE_TTL){ show(c.items); return; }
+  if(c && c.day===today){ show(c.items); return; }   // 同一天用快取，一天只爬一次
   try{
     let merged=[], okCount=0;
     for(const u of urls){                       // 依序抓取，避免同時打 proxy 被限流
@@ -811,7 +813,7 @@ async function renderRss(el,sec){
     if(!merged.length) throw new Error("empty");
     merged.sort((a,b)=>(b.date?.getTime?.()||0)-(a.date?.getTime?.()||0));
     merged=merged.slice(0,25);
-    cache[cacheKey]={t:Date.now(),items:merged.map(i=>({title:i.title,link:i.link,date:i.date}))};
+    cache[cacheKey]={day:today,items:merged.map(i=>({title:i.title,link:i.link,date:i.date}))};
     setCache(cache);
     show(merged);
   }catch(e){ bd.innerHTML=`<div class="muted-note err">載入失敗，請確認連結是否正確</div>`; }
