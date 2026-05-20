@@ -278,6 +278,17 @@ input,select,textarea{font-family:inherit}
 .del-btn:hover{color:var(--danger);background:var(--surface-2)}
 .add-row{font-size:13px;color:var(--accent);padding:7px 2px;display:inline-flex;align-items:center;gap:5px}
 .add-row:hover{opacity:.8}
+.sync-status{font-size:11px;font-weight:500;margin-left:8px;letter-spacing:0;text-transform:none}
+.sync-status.ok{color:#7fd29a}
+.sync-status.work{color:var(--accent)}
+.sync-status.bad{color:var(--danger)}
+/* 主畫面右上的同步小圓點（hover 顯示文字） */
+#syncDot{position:fixed;top:14px;right:18px;z-index:60;display:flex;align-items:center;gap:7px;
+  font-size:11px;color:var(--muted);text-shadow:var(--txt-shadow);opacity:0;transition:.3s var(--ease);pointer-events:none}
+#syncDot.show{opacity:.9}
+#syncDot i{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent)}
+#syncDot.ok i{background:#7fd29a;box-shadow:0 0 8px #7fd29a}
+#syncDot.bad i{background:var(--danger);box-shadow:0 0 8px var(--danger)}
 .seg{display:flex;gap:6px;flex-wrap:wrap}
 .seg button{padding:7px 14px;border-radius:999px;font-size:13px;background:var(--bg);border:1px solid var(--border-strong);color:var(--muted);transition:.15s}
 .seg button.on{background:var(--text);color:var(--bg);border-color:var(--text)}
@@ -303,6 +314,8 @@ input,select,textarea{font-family:inherit}
 <video id="bgVideo" class="bg-layer" autoplay muted loop playsinline></video>
 <iframe id="bgFrame" class="bg-layer" referrerpolicy="no-referrer"></iframe>
 <div id="bgOverlay" class="bg-layer"></div>
+
+<div id="syncDot"><i></i><span></span></div>
 
 <div class="app">
   <div class="layout">
@@ -431,13 +444,27 @@ input,select,textarea{font-family:inherit}
     </div>
 
     <div class="field">
-      <label>備份（換電腦／重裝可還原）</label>
+      <label>雲端同步（讓設定跟著網址走）<span id="syncStatus" class="sync-status"></span></label>
+      <div class="hint" style="margin-top:0;margin-bottom:8px">
+        貼上 GitHub 權杖後，書籤／區塊／桌布等變更會自動存到你的 repo；任何電腦開這個網址都會自動載回（讀取免權杖）。
+        權杖只存在這台瀏覽器，請勿在公用電腦使用，可隨時到 GitHub 撤銷。
+        <a href="https://github.com/settings/tokens/new?description=homepage-sync&scopes=public_repo" target="_blank" rel="noopener" style="color:var(--accent)">建立權杖 ↗</a>
+        （Classic、勾選 <b>public_repo</b> 即可）
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input class="input" id="ghToken" type="password" placeholder="ghp_… 或 github_pat_…" autocomplete="off" style="flex:1;min-width:180px">
+        <button class="btn ghost" id="syncNow" type="button" title="立即從雲端拉取最新設定">↻ 立即同步</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>備份（離線檔案）</label>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <button class="btn ghost" id="exportCfg" type="button">⬇ 匯出設定</button>
         <button class="btn ghost" id="importCfg" type="button">⬆ 匯入設定</button>
         <input type="file" id="importFile" accept="application/json,.json" style="display:none">
       </div>
-      <div class="hint">把書籤、區塊、背景偏好<b>連同本機桌布（影片/圖片）</b>一起存成 JSON 檔備份；換電腦時匯入即可一鍵還原。桌布越大檔案越大，影片可能達數百 MB。</div>
+      <div class="hint">離線備份用：把目前設定存成 JSON 檔。跨電腦同步請用上方「雲端同步」，會自動把書籤與桌布帶到任何裝置。</div>
     </div>
 
     <div class="modal-actions">
@@ -474,7 +501,7 @@ const DEFAULTS = {
   name: "",
   engine: "google",
   city: "",
-  bg: { type:"gradient", gradient:"midnight", iframeUrl:"", overlay:35 },
+  bg: { type:"gradient", gradient:"midnight", iframeUrl:"", overlay:35, mediaUrl:"", mediaKind:"" },
   links: [
     { name:"YouTube", url:"https://www.youtube.com" },
     { name:"Gmail",   url:"https://mail.google.com" },
@@ -501,7 +528,7 @@ const DEFAULTS = {
 };
 
 let cfg = load();
-save(); // 持久化遷移結果
+localStorage.setItem(STORE_KEY, JSON.stringify(cfg)); // 持久化遷移結果（此時同步尚未啟用，不推送）
 function load(){
   try{
     const raw = localStorage.getItem(STORE_KEY);
@@ -524,10 +551,114 @@ function migrate(c){
     c.migratedStudentV2=true;
   }
 }
-function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(cfg)); }
+function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(cfg)); schedulePush(); }
+
+/* ===================== 雲端同步（GitHub repo config.json） =====================
+   讀取：免權杖，任何裝置開網址就自動拉回（公開 repo）。
+   寫入：需一次性貼上權杖（存本機），變更後自動 commit。 */
+const TOKEN_KEY="homepage_gh_token";
+let remoteSha;            // config.json 目前的 git sha（避免每次重抓）
+let syncReady=false;      // 首次拉取完成前，禁止推送以免覆蓋雲端較新版本
+let pushTimer=null;
+const SYNC_PATH="config.json";
+
+function getToken(){ try{ return localStorage.getItem(TOKEN_KEY)||""; }catch(e){ return ""; } }
+function setToken(t){ try{ t?localStorage.setItem(TOKEN_KEY,t):localStorage.removeItem(TOKEN_KEY); }catch(e){} }
+// 從 GitHub Pages 網址推導 owner/repo（專案頁取第一段路徑；使用者頁為 owner.github.io）
+function deriveRepo(){
+  const m=location.hostname.match(/^([^.]+)\.github\.io$/);
+  if(!m) return null;
+  const owner=m[1];
+  const seg=location.pathname.split("/").filter(Boolean);
+  const repo=seg[0]||`${owner}.github.io`;
+  return {owner,repo,branch:"main"};
+}
+function ghHeaders(){ const h={Accept:"application/vnd.github+json"}; const t=getToken(); if(t)h.Authorization="Bearer "+t; return h; }
+function b64encodeUnicode(str){ const bytes=new TextEncoder().encode(str); let bin=""; bytes.forEach(b=>bin+=String.fromCharCode(b)); return btoa(bin); }
+function b64decodeUnicode(b64){ const bin=atob(b64.replace(/\s/g,"")); return new TextDecoder().decode(Uint8Array.from(bin,c=>c.charCodeAt(0))); }
+function blobToB64(blob){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result).split(",")[1]); r.onerror=()=>rej(r.error); r.readAsDataURL(blob); }); }
+
+const elSyncDot=document.getElementById("syncDot");
+function setSync(state,msg){
+  const map={ pull:["work","同步中…"], saving:["work","儲存中…"], saved:["ok","已同步 ✓"],
+              error:["bad","同步失敗"], local:["","僅本機（未設定權杖）"], idle:["",""] };
+  const [cls,txt]=map[state]||["",""];
+  const badge=document.getElementById("syncStatus");
+  if(badge){ badge.textContent=msg||txt; badge.className="sync-status "+(cls==="work"?"work":cls==="ok"?"ok":cls==="bad"?"bad":""); }
+  if(elSyncDot){
+    elSyncDot.className=cls?cls:"";
+    elSyncDot.querySelector("span").textContent=msg||txt;
+    if(state==="saving"||state==="pull"||state==="error"){ elSyncDot.classList.add("show"); }
+    else if(state==="saved"){ elSyncDot.classList.add("show"); setTimeout(()=>elSyncDot.classList.remove("show"),1800); }
+    else elSyncDot.classList.remove("show");
+  }
+}
+
+async function pullRemote(){
+  const R=deriveRepo(); if(!R) return false;
+  try{
+    const api=`https://api.github.com/repos/${R.owner}/${R.repo}/contents/${SYNC_PATH}?ref=${R.branch}&t=${Date.now()}`;
+    const res=await fetch(api,{headers:ghHeaders(),cache:"no-store"});
+    if(res.status===404){ remoteSha=null; return false; }
+    if(!res.ok) return false;
+    const j=await res.json(); remoteSha=j.sha;
+    const remote=JSON.parse(b64decodeUnicode(j.content));
+    cfg=Object.assign(structuredClone(DEFAULTS),remote);
+    cfg.bg=Object.assign(structuredClone(DEFAULTS.bg),remote.bg||{});
+    localStorage.setItem(STORE_KEY, JSON.stringify(cfg));   // 僅快取，不觸發推送
+    await applyBackground(); renderLinks(); renderSections();
+    return true;
+  }catch(e){ return false; }
+}
+function schedulePush(){
+  if(!syncReady || !getToken() || !deriveRepo()) return;
+  clearTimeout(pushTimer);
+  setSync("saving");
+  pushTimer=setTimeout(pushRemote,1200);
+}
+async function pushRemote(retried){
+  const R=deriveRepo(); const tok=getToken(); if(!R||!tok) return;
+  setSync("saving");
+  try{
+    const api=`https://api.github.com/repos/${R.owner}/${R.repo}/contents/${SYNC_PATH}`;
+    if(remoteSha===undefined){
+      const g=await fetch(api+`?ref=${R.branch}&t=${Date.now()}`,{headers:ghHeaders()});
+      if(g.ok) remoteSha=(await g.json()).sha; else if(g.status===404) remoteSha=null;
+    }
+    const body={ message:"Update homepage settings", content:b64encodeUnicode(JSON.stringify(cfg,null,2)), branch:R.branch };
+    if(remoteSha) body.sha=remoteSha;
+    const p=await fetch(api,{method:"PUT",headers:{...ghHeaders(),"Content-Type":"application/json"},body:JSON.stringify(body)});
+    if(p.status===409 && !retried){ remoteSha=undefined; return pushRemote(true); }   // sha 衝突→重抓重試一次
+    if(p.status===401||p.status===403){ throw new Error("權杖無效或無權限"); }
+    if(!p.ok) throw new Error("HTTP "+p.status);
+    remoteSha=(await p.json()).content?.sha;
+    setSync("saved");
+  }catch(e){ setSync("error",("同步失敗："+(e.message||"")).trim()); }
+}
+// 上傳任意檔案到 repo（給本機桌布用），回傳 raw 連結
+async function uploadRepoFile(path, blob){
+  const R=deriveRepo(); const tok=getToken(); if(!R||!tok) throw new Error("需要權杖");
+  const api=`https://api.github.com/repos/${R.owner}/${R.repo}/contents/${path}`;
+  let sha; try{ const g=await fetch(api+`?ref=${R.branch}&t=${Date.now()}`,{headers:ghHeaders()}); if(g.ok) sha=(await g.json()).sha; }catch(e){}
+  const body={ message:"Update wallpaper", content:await blobToB64(blob), branch:R.branch }; if(sha) body.sha=sha;
+  const p=await fetch(api,{method:"PUT",headers:{...ghHeaders(),"Content-Type":"application/json"},body:JSON.stringify(body)});
+  if(!p.ok) throw new Error("桌布上傳失敗 HTTP "+p.status);
+  return `https://raw.githubusercontent.com/${R.owner}/${R.repo}/${R.branch}/${path}`;
+}
+function mimeExt(type){ return ({ "video/mp4":"mp4","video/webm":"webm","video/ogg":"ogv",
+  "image/jpeg":"jpg","image/png":"png","image/gif":"gif","image/webp":"webp" })[type]||""; }
+// 設定面板裡的同步狀態小字（只在面板開啟時可見）
+function refreshSyncBadge(){
+  const badge=document.getElementById("syncStatus"); if(!badge) return;
+  if(!deriveRepo()){ badge.textContent="（此網址非 GitHub Pages，僅本機）"; badge.className="sync-status"; return; }
+  if(getToken()){ badge.textContent="已啟用 ✓"; badge.className="sync-status ok"; }
+  else { badge.textContent="讀取已同步・儲存需貼權杖"; badge.className="sync-status"; }
+}
 function escapeHtml(s){ return (s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 function hostOf(u){ try{ return new URL(u).hostname.replace(/^www\./,""); }catch(e){ return ""; } }
 function normUrl(u){ u=(u||"").trim(); if(!u)return""; return /^https?:\/\//i.test(u)?u:"https://"+u; }
+// 只放行 http/https 連結，擋掉 javascript: 等惡意協定（RSS 來源不可信）
+function safeUrl(u){ u=(u||"").trim(); return /^https?:\/\//i.test(u)?u:"#"; }
 
 /* ===================== IndexedDB（背景檔案） ===================== */
 function idb(){
@@ -564,6 +695,8 @@ async function applyBackground(){
     elBgGradient.style.display="block";
   }
   else if(cfg.bg.type==="media"){
+    let shown=false;
+    // 1) 本機 IndexedDB（這台電腦匯入過，最快、可離線）
     try{
       const rec = await idbGet("wallpaper");
       if(rec && rec.blob){
@@ -572,15 +705,24 @@ async function applyBackground(){
           elBgVideo.src = curBgObjectURL; elBgVideo.style.display="block";
           elBgVideo.play().catch(()=>{});
         }else{
-          // 用 video 元素呈現圖片不合適，改用獨立背景：借用 gradient 層當圖片容器
           elBgGradient.style.background = `center/cover no-repeat url("${curBgObjectURL}")`;
           elBgGradient.style.animation="none";
           elBgGradient.style.display="block";
         }
-      }else{
-        elBgGradient.style.display="block"; // 無檔案退回漸層
+        shown=true;
       }
-    }catch(e){ elBgGradient.style.display="block"; }
+    }catch(e){}
+    // 2) 其他裝置：用 repo 上的桌布連結（隨設定同步而來）
+    if(!shown && cfg.bg.mediaUrl){
+      if(cfg.bg.mediaKind==="video"){
+        elBgVideo.src=cfg.bg.mediaUrl; elBgVideo.style.display="block"; elBgVideo.play().catch(()=>{});
+      }else{
+        elBgGradient.style.background=`center/cover no-repeat url("${cfg.bg.mediaUrl}")`;
+        elBgGradient.style.animation="none"; elBgGradient.style.display="block";
+      }
+      shown=true;
+    }
+    if(!shown) elBgGradient.style.display="block"; // 無檔案退回漸層
   }
   else if(cfg.bg.type==="iframe"){
     if(cfg.bg.iframeUrl){ elBgFrame.src=cfg.bg.iframeUrl; elBgFrame.style.display="block"; }
@@ -828,7 +970,7 @@ function paintItems(bd,items){
   bd.innerHTML="";
   items.forEach(i=>{
     const a=document.createElement("a");
-    a.className="feed-item"; a.href=i.link||"#"; a.target="_blank"; a.rel="noopener";
+    a.className="feed-item"; a.href=safeUrl(i.link); a.target="_blank"; a.rel="noopener";
     a.innerHTML=`${escapeHtml(i.title)}<span class="when">${relTime(i.date)}</span>`;
     bd.appendChild(a);
   });
@@ -991,6 +1133,8 @@ function openSettings(){
   syncBgPanels();
   document.getElementById("bgOverlayRange").value=cfg.bg.overlay??35;
   document.getElementById("bgIframeUrl").value=cfg.bg.iframeUrl||"";
+  document.getElementById("ghToken").value=getToken();
+  refreshSyncBadge();
   renderGradientPick();
   // 連結
   const lc=document.getElementById("cfgLinks"); lc.innerHTML="";
@@ -1080,40 +1224,43 @@ document.getElementById("saveSettings").onclick=async()=>{
   cfg.bg.overlay=+document.getElementById("bgOverlayRange").value;
   cfg.bg.iframeUrl=document.getElementById("bgIframeUrl").value.trim();
   const onGp=document.querySelector("#gradientPick .gp.on"); if(onGp)cfg.bg.gradient=onGp.title;
-  if(pendingBgFile){ try{ await idbSet("wallpaper",pendingBgFile);}catch(e){alert("背景檔案儲存失敗，可能檔案太大");} pendingBgFile=null; }
+
+  // 雲端同步權杖：只存本機，不寫進雲端設定
+  setToken(document.getElementById("ghToken").value.trim());
+
+  // 桌布：本機 IndexedDB 一定存（這台即時、可離線）；有權杖則上傳 repo，讓其他裝置也載得到
+  if(pendingBgFile){
+    try{ await idbSet("wallpaper",pendingBgFile); }catch(e){ alert("背景檔案儲存失敗，可能檔案太大"); }
+    cfg.bg.mediaKind=pendingBgFile.kind; cfg.bg.mediaUrl="";
+    if(getToken() && deriveRepo()){
+      if(pendingBgFile.blob.size>25*1048576){
+        alert("桌布超過 25MB，已存到本機但不會同步到其他電腦（檔案太大）。\n建議用較小的桌布，或改用「網頁背景網址」指向線上影片。");
+      }else{
+        try{
+          setSync("saving");
+          const ext=mimeExt(pendingBgFile.blob.type)||(pendingBgFile.kind==="video"?"mp4":"jpg");
+          cfg.bg.mediaUrl=await uploadRepoFile(`wp/bg.${ext}`, pendingBgFile.blob);
+        }catch(err){ alert("桌布上傳雲端失敗，已存到本機：\n"+(err.message||"")); }
+      }
+    }
+    pendingBgFile=null;
+  }
+
   cfg.links=[...document.querySelectorAll("#cfgLinks .row-edit")].map(r=>{const[n,u]=r.querySelectorAll("input");return{name:n.value.trim()||hostOf(u.value),url:u.value.trim()};}).filter(l=>l.url);
   cfg.sections=[...document.querySelectorAll("#cfgSections > div")].map(w=>w._read?w._read():null).filter(Boolean);
-  save();
+  save();                       // 寫本機 + 自動推送 config.json 到雲端
+  refreshSyncBadge();
   closeSettings();
   await applyBackground();
   renderLinks(); renderSections();
 };
 
-/* ---- 設定匯出 / 匯入（備份與還原）---- */
-function blobToDataURL(blob){
-  return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(r.error); r.readAsDataURL(blob); });
-}
-document.getElementById("exportCfg").onclick=async(ev)=>{
-  const btn=ev.currentTarget; const orig=btn.textContent;
-  const out=structuredClone(cfg);
-  // 連同本機桌布（影片/圖片 blob）一起匯出
-  if(cfg.bg && cfg.bg.type==="media"){
-    try{
-      const rec=await idbGet("wallpaper");
-      if(rec && rec.blob){
-        const big=rec.blob.size>120*1048576;
-        if(!big || confirm(`桌布約 ${(rec.blob.size/1048576).toFixed(0)}MB，匯出檔會很大。\n按「確定」一起匯出桌布，按「取消」只匯出其他設定。`)){
-          btn.textContent="打包桌布中…"; btn.disabled=true;
-          out.__wallpaper={ kind:rec.kind, data:await blobToDataURL(rec.blob) };
-        }
-      }
-    }catch(e){}
-  }
-  const blob=new Blob([JSON.stringify(out,null,2)],{type:"application/json"});
+/* ---- 設定匯出 / 匯入（離線備份；桌布改走雲端同步，不放進此檔）---- */
+document.getElementById("exportCfg").onclick=()=>{
+  const blob=new Blob([JSON.stringify(cfg,null,2)],{type:"application/json"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob); a.download="homepage-settings.json"; a.click();
-  setTimeout(()=>URL.revokeObjectURL(a.href),2000);
-  btn.textContent=orig; btn.disabled=false;
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 };
 document.getElementById("importCfg").onclick=()=>document.getElementById("importFile").click();
 document.getElementById("importFile").addEventListener("change",e=>{
@@ -1122,22 +1269,24 @@ document.getElementById("importFile").addEventListener("change",e=>{
   r.onload=async()=>{
     try{
       const data=JSON.parse(r.result);
-      const wp=data.__wallpaper; delete data.__wallpaper;   // 桌布另外存 IndexedDB，勿進 localStorage
+      delete data.__wallpaper;   // 相容舊備份檔：忽略其中的桌布資料
       cfg=Object.assign(structuredClone(DEFAULTS),data);
       cfg.bg=Object.assign(structuredClone(DEFAULTS.bg),data.bg||{});
-      let wpOk=false;
-      if(wp && wp.data){
-        try{ const b=await (await fetch(wp.data)).blob(); await idbSet("wallpaper",{blob:b,kind:wp.kind||"image"}); wpOk=true; }
-        catch(err){ /* 桌布還原失敗不影響其他設定 */ }
-      }
       save(); await applyBackground(); renderLinks(); renderSections();
       openSettings();          // 重新填入表單，顯示匯入後的值
-      alert("設定已匯入 ✓"+(wpOk?"（含桌布）":(wp?"（桌布還原失敗）":"")));
+      alert("設定已匯入 ✓");
     }catch(err){ alert("匯入失敗：檔案格式不正確"); }
   };
   r.readAsText(f); e.target.value="";   // 允許重複匯入同一檔
 });
 
+document.getElementById("syncNow").onclick=async()=>{
+  if(!deriveRepo()){ alert("這個網址不是 GitHub Pages，無法雲端同步。"); return; }
+  setSync("pull");
+  const ok=await pullRemote();
+  if(ok){ openSettings(); setSync("saved","已拉取雲端 ✓"); }
+  else { setSync("error","雲端尚無設定或讀取失敗"); refreshSyncBadge(); }
+};
 document.getElementById("openSettings").onclick=openSettings;
 document.getElementById("cancelSettings").onclick=closeSettings;
 overlay.addEventListener("click",e=>{ if(e.target===overlay)closeSettings(); });
@@ -1154,6 +1303,18 @@ renderSections();
 tick();
 setInterval(tick,1000);
 setTimeout(()=>searchInput.focus(),400);
+
+/* 雲端同步：先以本機資料即時顯示，再從雲端拉取最新覆蓋；之後才允許推送 */
+(async()=>{
+  if(!deriveRepo()){ syncReady=true; return; }   // 非 GitHub Pages：僅本機
+  setSync("pull");
+  const got=await pullRemote();
+  syncReady=true;
+  if(got){ setSync("idle"); }
+  else if(getToken()){ pushRemote(); }           // 雲端尚無設定且有權杖→建立首份
+  else { setSync("idle"); }
+  refreshSyncBadge();
+})();
 </script>
 </body>
 </html>
