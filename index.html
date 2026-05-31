@@ -1304,15 +1304,13 @@ tick();
 setInterval(tick,1000);
 setTimeout(()=>searchInput.focus(),400);
 
-/* 雲端同步：先以本機資料即時顯示，再從雲端拉取最新覆蓋；之後才允許推送 */
+/* 雲端同步：先以本機資料即時顯示，再從雲端拉取最新覆蓋；之後才允許推送
+   啟動拉取靜默進行——不在右上角閃 dot；只在使用者按下「立即同步」或實際有寫入時才顯示狀態 */
 (async()=>{
-  if(!deriveRepo()){ syncReady=true; return; }   // 非 GitHub Pages：僅本機
-  setSync("pull");
+  if(!deriveRepo()){ syncReady=true; refreshSyncBadge(); return; }   // 非 GitHub Pages：僅本機
   const got=await pullRemote();
   syncReady=true;
-  if(got){ setSync("idle"); }
-  else if(getToken()){ pushRemote(); }           // 雲端尚無設定且有權杖→建立首份
-  else { setSync("idle"); }
+  if(!got && getToken()){ pushRemote(); }        // 雲端尚無設定且有權杖→建立首份
   refreshSyncBadge();
 })();
 </script>
