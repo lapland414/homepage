@@ -458,13 +458,14 @@ input,select,textarea{font-family:inherit}
     </div>
 
     <div class="field">
-      <label>備份（離線檔案）</label>
+      <label>備份（離線檔案）<span id="undoStatus" class="sync-status"></span></label>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <button class="btn ghost" id="exportCfg" type="button">⬇ 匯出設定</button>
         <button class="btn ghost" id="importCfg" type="button">⬆ 匯入設定</button>
+        <button class="btn ghost" id="undoCfg" type="button" title="還原成本機自動備援的「上一份」設定">↶ 還原上一份</button>
         <input type="file" id="importFile" accept="application/json,.json" style="display:none">
       </div>
-      <div class="hint">離線備份用：把目前設定存成 JSON 檔。跨電腦同步請用上方「雲端同步」，會自動把書籤與桌布帶到任何裝置。</div>
+      <div class="hint">離線備份用：把目前設定存成 JSON 檔。跨電腦同步請用上方「雲端同步」，會自動把書籤與桌布帶到任何裝置。<br>每次儲存/匯入/雲端拉取前，系統會把上一份設定保留在本機（key: <code>homepage_cfg_v3_backup</code>），若不慎覆蓋可按「還原上一份」救回。</div>
     </div>
 
     <div class="modal-actions">
@@ -527,6 +528,16 @@ const DEFAULTS = {
   ],
 };
 
+const BACKUP_KEY = STORE_KEY + "_backup";
+/* 任何即將覆蓋本機 cfg 的動作（儲存/匯入/雲端拉取）都先呼叫這個，把上一份完整保留 */
+function snapshotCfg(reason){
+  try{
+    const cur = localStorage.getItem(STORE_KEY);
+    if(cur && cur.length > 2){   // 避免空物件覆蓋之前的好備援
+      localStorage.setItem(BACKUP_KEY, JSON.stringify({ at: Date.now(), reason: reason||"", cfg: JSON.parse(cur) }));
+    }
+  }catch(e){}
+}
 let cfg = load();
 localStorage.setItem(STORE_KEY, JSON.stringify(cfg)); // 持久化遷移結果（此時同步尚未啟用，不推送）
 function load(){
@@ -551,7 +562,7 @@ function migrate(c){
     c.migratedStudentV2=true;
   }
 }
-function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(cfg)); schedulePush(); }
+function save(){ snapshotCfg("save"); localStorage.setItem(STORE_KEY, JSON.stringify(cfg)); schedulePush(); }
 
 /* ===================== 雲端同步（GitHub repo config.json） =====================
    讀取：免權杖，任何裝置開網址就自動拉回（公開 repo）。
@@ -603,6 +614,7 @@ async function pullRemote(){
     if(!res.ok) return false;
     const j=await res.json(); remoteSha=j.sha;
     const remote=JSON.parse(b64decodeUnicode(j.content));
+    snapshotCfg("pull-remote");                            // 先備援當前本機，避免雲端覆蓋造成資料遺失
     cfg=Object.assign(structuredClone(DEFAULTS),remote);
     cfg.bg=Object.assign(structuredClone(DEFAULTS.bg),remote.bg||{});
     localStorage.setItem(STORE_KEY, JSON.stringify(cfg));   // 僅快取，不觸發推送
@@ -653,6 +665,19 @@ function refreshSyncBadge(){
   if(!deriveRepo()){ badge.textContent="（此網址非 GitHub Pages，僅本機）"; badge.className="sync-status"; return; }
   if(getToken()){ badge.textContent="已啟用 ✓"; badge.className="sync-status ok"; }
   else { badge.textContent="讀取已同步・儲存需貼權杖"; badge.className="sync-status"; }
+}
+function refreshUndoBadge(){
+  const el=document.getElementById("undoStatus"); if(!el) return;
+  const raw=localStorage.getItem(BACKUP_KEY);
+  if(!raw){ el.textContent="（目前無備援）"; el.className="sync-status"; return; }
+  try{
+    const bk=JSON.parse(raw);
+    const when=new Date(bk.at||0).toLocaleString();
+    const reasonMap={save:"儲存",import:"匯入","pull-remote":"雲端拉取","undo-swap":"還原切換"};
+    const why=reasonMap[bk.reason]||bk.reason||"覆蓋";
+    el.textContent=`可還原至 ${when}（${why} 前）`;
+    el.className="sync-status ok";
+  }catch(e){ el.textContent="（備援損壞）"; el.className="sync-status bad"; }
 }
 function escapeHtml(s){ return (s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 function hostOf(u){ try{ return new URL(u).hostname.replace(/^www\./,""); }catch(e){ return ""; } }
@@ -1135,6 +1160,7 @@ function openSettings(){
   document.getElementById("bgIframeUrl").value=cfg.bg.iframeUrl||"";
   document.getElementById("ghToken").value=getToken();
   refreshSyncBadge();
+  refreshUndoBadge();
   renderGradientPick();
   // 連結
   const lc=document.getElementById("cfgLinks"); lc.innerHTML="";
@@ -1270,6 +1296,7 @@ document.getElementById("importFile").addEventListener("change",e=>{
     try{
       const data=JSON.parse(r.result);
       delete data.__wallpaper;   // 相容舊備份檔：忽略其中的桌布資料
+      snapshotCfg("import");      // 匯入前備援當前設定
       cfg=Object.assign(structuredClone(DEFAULTS),data);
       cfg.bg=Object.assign(structuredClone(DEFAULTS.bg),data.bg||{});
       save(); await applyBackground(); renderLinks(); renderSections();
@@ -1279,6 +1306,27 @@ document.getElementById("importFile").addEventListener("change",e=>{
   };
   r.readAsText(f); e.target.value="";   // 允許重複匯入同一檔
 });
+
+document.getElementById("undoCfg").onclick=async()=>{
+  const raw=localStorage.getItem(BACKUP_KEY);
+  if(!raw){ alert("本機沒有備援資料。"); return; }
+  let bk;
+  try{ bk=JSON.parse(raw); }catch(e){ alert("備援資料損壞，無法還原。"); return; }
+  if(!bk?.cfg){ alert("本機沒有可還原的設定。"); return; }
+  const when=new Date(bk.at||0).toLocaleString();
+  const reasonMap={save:"儲存",import:"匯入","pull-remote":"雲端拉取"};
+  const why=reasonMap[bk.reason]||bk.reason||"覆蓋";
+  if(!confirm(`還原備援設定？\n建立時間：${when}\n建立原因：${why}\n\n目前的設定會被覆蓋（並反過來成為新的備援，可再按一次切回）。`)) return;
+  // 雙向交換：當前 cfg 變成新備援，舊備援成為當前
+  const prevRaw=localStorage.getItem(STORE_KEY);
+  try{ localStorage.setItem(BACKUP_KEY, JSON.stringify({ at:Date.now(), reason:"undo-swap", cfg:JSON.parse(prevRaw||"{}") })); }catch(e){}
+  cfg=Object.assign(structuredClone(DEFAULTS), bk.cfg);
+  cfg.bg=Object.assign(structuredClone(DEFAULTS.bg), bk.cfg.bg||{});
+  localStorage.setItem(STORE_KEY, JSON.stringify(cfg));
+  await applyBackground(); renderLinks(); renderSections();
+  closeSettings(); openSettings();
+  alert("已還原上一份設定 ✓");
+};
 
 document.getElementById("syncNow").onclick=async()=>{
   if(!deriveRepo()){ alert("這個網址不是 GitHub Pages，無法雲端同步。"); return; }
