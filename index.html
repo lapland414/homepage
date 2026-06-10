@@ -131,7 +131,10 @@ input,select,textarea{font-family:inherit}
 .greeting{margin-top:6px;color:var(--muted);font-size:15px;text-shadow:var(--txt-shadow)}
 
 /* ---- 搜尋框 ---- */
-.search-wrap{margin-top:34px;width:100%;max-width:560px;position:relative}
+/* 提升整個搜尋區的 stacking 等級，確保下拉建議蓋在連結卡片之上
+   (連結卡片用 backdrop-filter 各自建立 stacking context，
+    若 search-wrap 不指定 z-index，suggest 會跟卡片同層、被源碼後者蓋掉) */
+.search-wrap{margin-top:34px;width:100%;max-width:560px;position:relative;z-index:20;isolation:isolate}
 .search-box{
   display:flex;align-items:center;gap:11px;height:56px;padding:0 18px;
   background:var(--surface);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
