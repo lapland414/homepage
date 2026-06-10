@@ -131,7 +131,7 @@ input,select,textarea{font-family:inherit}
 .greeting{margin-top:6px;color:var(--muted);font-size:15px;text-shadow:var(--txt-shadow)}
 
 /* ---- 搜尋框 ---- */
-.search-wrap{margin-top:34px;width:100%;max-width:560px}
+.search-wrap{margin-top:34px;width:100%;max-width:560px;position:relative}
 .search-box{
   display:flex;align-items:center;gap:11px;height:56px;padding:0 18px;
   background:var(--surface);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
@@ -146,6 +146,30 @@ input,select,textarea{font-family:inherit}
 .search-box svg{width:19px;height:19px;color:var(--faint);flex-shrink:0}
 .search-box input{flex:1;background:none;border:none;outline:none;color:var(--text);font-size:16px}
 .search-box input::placeholder{color:var(--faint)}
+
+/* ---- 搜尋建議下拉（液態玻璃、與搜尋框斷開漂浮）---- */
+.suggest{
+  position:absolute;top:calc(100% + 8px);left:14px;right:14px;z-index:30;
+  background:var(--surface-solid);
+  backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
+  border:1px solid var(--border);border-radius:20px;
+  box-shadow:var(--glass-edge);overflow:hidden;
+  padding:6px 0;display:none;
+  transform-origin:top center;
+  animation:suggestIn .18s var(--ease);
+}
+@keyframes suggestIn{ from{opacity:0;transform:translateY(-4px) scale(.99)} to{opacity:1;transform:none} }
+.suggest.show{display:block}
+.suggest-item{
+  display:flex;align-items:center;gap:14px;
+  padding:9px 22px;cursor:pointer;
+  font-size:15px;color:var(--text);
+  transition:background .12s var(--ease);
+}
+.suggest-item svg{width:14px;height:14px;color:var(--faint);flex-shrink:0;opacity:.75}
+.suggest-item.active,.suggest-item:hover{background:rgba(255,255,255,.08)}
+.suggest-item .typed{color:var(--muted);font-weight:400}
+.suggest-item .rest{color:var(--text);font-weight:600}
 
 /* ---- 常用連結 ---- */
 .links{
@@ -330,6 +354,7 @@ input,select,textarea{font-family:inherit}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
           <input type="text" id="searchInput" placeholder="搜尋 Google，或輸入網址…" autocomplete="off" spellcheck="false">
         </div>
+        <div class="suggest" id="suggest" role="listbox"></div>
       </form>
 
       <div class="links fade-up d4" id="links"></div>
@@ -810,13 +835,95 @@ function tick(){
 
 /* ===================== 搜尋 ===================== */
 const searchInput=document.getElementById("searchInput");
-document.getElementById("searchForm").addEventListener("submit",e=>{
-  e.preventDefault();
+function submitSearch(){
   const q=searchInput.value.trim(); if(!q)return;
   if(/^https?:\/\//i.test(q)||/^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(q)){
     location.href=/^https?:\/\//i.test(q)?q:"https://"+q; return;
   }
   location.href="https://www.google.com/search?q="+encodeURIComponent(q);
+}
+document.getElementById("searchForm").addEventListener("submit",e=>{ e.preventDefault(); submitSearch(); });
+
+/* ---- 自動完成（Google complete/search，經 CORS proxy；和搜尋引擎一致的中英文補全品質）---- */
+const suggestEl=document.getElementById("suggest");
+let suggestItems=[];      // 目前清單
+let suggestActive=-1;     // 鍵盤焦點索引
+const suggestCache=new Map();
+let suggestTimer=null, suggestAbort=null;
+
+async function fetchSuggestions(q){
+  q=q.trim(); if(!q) return [];
+  if(suggestCache.has(q)) return suggestCache.get(q);
+  if(suggestAbort) suggestAbort.abort();
+  suggestAbort=new AbortController();
+  const target=`https://www.google.com/complete/search?client=firefox&hl=zh-TW&q=${encodeURIComponent(q)}`;
+  // 與檔內 RSS 同款 proxy；失敗則靜默（不顯示建議，不打斷打字）
+  const strategies=[
+    u=>`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+    u=>`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}`,
+  ];
+  for(const make of strategies){
+    try{
+      const r=await fetch(make(target),{signal:suggestAbort.signal,cache:"no-store"});
+      if(!r.ok) continue;
+      const d=JSON.parse(await r.text());
+      const arr=Array.isArray(d?.[1])?d[1].slice(0,8):[];
+      suggestCache.set(q,arr);
+      if(suggestCache.size>80) suggestCache.delete(suggestCache.keys().next().value);
+      return arr;
+    }catch(e){ /* try next strategy or give up */ }
+  }
+  return [];
+}
+function hideSuggest(){ suggestEl.classList.remove("show"); suggestActive=-1; }
+function setSuggestActive(i){
+  const els=suggestEl.querySelectorAll(".suggest-item");
+  els.forEach(e=>e.classList.remove("active"));
+  if(i>=0 && els[i]){ els[i].classList.add("active"); suggestActive=i; els[i].scrollIntoView({block:"nearest"}); }
+  else suggestActive=-1;
+}
+function renderSuggest(typed,arr){
+  suggestEl.innerHTML="";
+  if(!arr.length){ hideSuggest(); return; }
+  suggestItems=arr;
+  const t=typed.toLowerCase();
+  arr.forEach((s,i)=>{
+    const row=document.createElement("div");
+    row.className="suggest-item"; row.setAttribute("role","option");
+    // 拆「已輸入」與「補全」兩段，前段較淡、後段較粗（與 Google/DDG 視覺一致）
+    let head="",tail=s;
+    if(s.toLowerCase().startsWith(t)){ head=s.slice(0,typed.length); tail=s.slice(typed.length); }
+    row.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><span><span class="typed"></span><span class="rest"></span></span>`;
+    row.querySelector(".typed").textContent=head;
+    row.querySelector(".rest").textContent=tail;
+    // mousedown 比 click 先於 input blur，避免 blur 隱藏建議造成點不到
+    row.addEventListener("mousedown",e=>{ e.preventDefault(); searchInput.value=s; submitSearch(); });
+    row.addEventListener("mouseover",()=>setSuggestActive(i));
+    suggestEl.appendChild(row);
+  });
+  suggestEl.classList.add("show");
+  suggestActive=-1;
+}
+
+searchInput.addEventListener("input",()=>{
+  const q=searchInput.value;
+  clearTimeout(suggestTimer);
+  if(!q.trim()){ suggestItems=[]; hideSuggest(); return; }
+  suggestTimer=setTimeout(async()=>{
+    const arr=await fetchSuggestions(q);
+    if(searchInput.value===q) renderSuggest(q,arr);  // 確認仍是當下輸入才渲染（避免後到結果蓋掉新查詢）
+  },140);
+});
+searchInput.addEventListener("focus",()=>{
+  if(searchInput.value.trim() && suggestItems.length && suggestEl.children.length) suggestEl.classList.add("show");
+});
+searchInput.addEventListener("blur",()=>{ setTimeout(hideSuggest,140); });
+searchInput.addEventListener("keydown",e=>{
+  const open=suggestEl.classList.contains("show") && suggestItems.length;
+  if(e.key==="ArrowDown" && open){ e.preventDefault(); setSuggestActive((suggestActive+1)%suggestItems.length); }
+  else if(e.key==="ArrowUp" && open){ e.preventDefault(); setSuggestActive((suggestActive-1+suggestItems.length)%suggestItems.length); }
+  else if(e.key==="Enter" && open && suggestActive>=0){ e.preventDefault(); searchInput.value=suggestItems[suggestActive]; submitSearch(); }
+  else if(e.key==="Escape" && open){ hideSuggest(); }
 });
 
 /* ===================== 常用連結 ===================== */
