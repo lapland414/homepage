@@ -844,7 +844,8 @@ function submitSearch(){
 }
 document.getElementById("searchForm").addEventListener("submit",e=>{ e.preventDefault(); submitSearch(); });
 
-/* ---- 自動完成（Google complete/search，經 CORS proxy；和搜尋引擎一致的中英文補全品質）---- */
+/* ---- 自動完成（多端點嘗試：DDG 直連 → DDG via proxy → Google via proxy）
+   全部失敗會在 console 留 warn，且靜默不顯示建議，不打斷打字 ---- */
 const suggestEl=document.getElementById("suggest");
 let suggestItems=[];      // 目前清單
 let suggestActive=-1;     // 鍵盤焦點索引
@@ -856,23 +857,33 @@ async function fetchSuggestions(q){
   if(suggestCache.has(q)) return suggestCache.get(q);
   if(suggestAbort) suggestAbort.abort();
   suggestAbort=new AbortController();
-  const target=`https://www.google.com/complete/search?client=firefox&hl=zh-TW&q=${encodeURIComponent(q)}`;
-  // 與檔內 RSS 同款 proxy；失敗則靜默（不顯示建議，不打斷打字）
+  const ddg=`https://duckduckgo.com/ac/?q=${encodeURIComponent(q)}&type=list`;
+  const gle=`https://www.google.com/complete/search?client=firefox&hl=zh-TW&q=${encodeURIComponent(q)}`;
   const strategies=[
-    u=>`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-    u=>`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}`,
+    ()=>ddg,                                                                  // 直連 DDG（理想：原生 CORS）
+    ()=>`https://api.allorigins.win/raw?url=${encodeURIComponent(ddg)}`,       // DDG 轉 proxy
+    ()=>`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(ddg)}`, // DDG 轉備援 proxy
+    ()=>`https://api.allorigins.win/raw?url=${encodeURIComponent(gle)}`,       // Google 轉 proxy
   ];
+  const errs=[];
   for(const make of strategies){
+    const url=make();
     try{
-      const r=await fetch(make(target),{signal:suggestAbort.signal,cache:"no-store"});
-      if(!r.ok) continue;
-      const d=JSON.parse(await r.text());
+      const r=await fetch(url,{signal:suggestAbort.signal,cache:"no-store"});
+      if(!r.ok){ errs.push(`${url} → HTTP ${r.status}`); continue; }
+      const text=await r.text();
+      const d=JSON.parse(text);
       const arr=Array.isArray(d?.[1])?d[1].slice(0,8):[];
+      if(!arr.length){ errs.push(`${url} → empty`); continue; }
       suggestCache.set(q,arr);
       if(suggestCache.size>80) suggestCache.delete(suggestCache.keys().next().value);
       return arr;
-    }catch(e){ /* try next strategy or give up */ }
+    }catch(e){
+      if(e.name==="AbortError") return [];     // 被新查詢取消，正常
+      errs.push(`${url} → ${e.message||e}`);
+    }
   }
+  console.warn("[suggest] all strategies failed for", q, errs);
   return [];
 }
 function hideSuggest(){ suggestEl.classList.remove("show"); suggestActive=-1; }
