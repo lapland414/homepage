@@ -844,47 +844,80 @@ function submitSearch(){
 }
 document.getElementById("searchForm").addEventListener("submit",e=>{ e.preventDefault(); submitSearch(); });
 
-/* ---- 自動完成（多端點嘗試：DDG 直連 → DDG via proxy → Google via proxy）
-   全部失敗會在 console 留 warn，且靜默不顯示建議，不打斷打字 ---- */
+/* ---- 自動完成
+   首選 JSONP：以 <script src=…&jsonp=cb> 載入 Google suggestqueries，瀏覽器允許跨域 script，
+   不受 CORS 限制、不經 proxy、延遲低。失敗才退到 fetch + proxy 路徑。
+   全部失敗會在 console 留 warn 但不打斷打字。 ---- */
 const suggestEl=document.getElementById("suggest");
 let suggestItems=[];      // 目前清單
 let suggestActive=-1;     // 鍵盤焦點索引
 const suggestCache=new Map();
-let suggestTimer=null, suggestAbort=null;
+let suggestTimer=null;
+let suggestSeq=0;         // 取消舊請求用：renderSuggest 時比對
+
+function fetchSuggestionsJSONP(q){
+  return new Promise(resolve=>{
+    const cb="__sg"+Date.now()+Math.floor(Math.random()*9999);
+    let done=false;
+    const script=document.createElement("script");
+    const cleanup=()=>{
+      done=true;
+      try{ delete window[cb]; }catch(e){ window[cb]=undefined; }
+      if(script.parentNode) script.parentNode.removeChild(script);
+    };
+    window[cb]=data=>{
+      if(done) return;
+      // YouTube client 格式：data[1] 的每項可能是字串或 [text,_,_]
+      const items=Array.isArray(data?.[1])?data[1]:[];
+      const flat=items.map(it=>Array.isArray(it)?it[0]:String(it)).filter(Boolean).slice(0,8);
+      cleanup(); resolve(flat);
+    };
+    script.src=`https://suggestqueries.google.com/complete/search?client=youtube&hl=zh-TW&q=${encodeURIComponent(q)}&jsonp=${cb}`;
+    script.onerror=()=>{ if(!done){ cleanup(); resolve([]); } };
+    document.head.appendChild(script);
+    // 4 秒保險絲；逾時就放棄這個請求（網路再慢的話建議已沒意義）
+    setTimeout(()=>{ if(!done){ cleanup(); resolve([]); } },4000);
+  });
+}
+
+async function fetchSuggestionsProxy(q){
+  const ddg=`https://duckduckgo.com/ac/?q=${encodeURIComponent(q)}&type=list`;
+  const gle=`https://www.google.com/complete/search?client=firefox&hl=zh-TW&q=${encodeURIComponent(q)}`;
+  const strategies=[
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(ddg)}`,
+    `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(ddg)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(gle)}`,
+  ];
+  const errs=[];
+  for(const url of strategies){
+    try{
+      const r=await fetch(url,{cache:"no-store"});
+      if(!r.ok){ errs.push(`${url} → HTTP ${r.status}`); continue; }
+      const d=JSON.parse(await r.text());
+      const arr=Array.isArray(d?.[1])?d[1].slice(0,8):[];
+      if(arr.length) return arr;
+      errs.push(`${url} → empty`);
+    }catch(e){ errs.push(`${url} → ${e.message||e}`); }
+  }
+  return {empty:true,errs};
+}
 
 async function fetchSuggestions(q){
   q=q.trim(); if(!q) return [];
   if(suggestCache.has(q)) return suggestCache.get(q);
-  if(suggestAbort) suggestAbort.abort();
-  suggestAbort=new AbortController();
-  const ddg=`https://duckduckgo.com/ac/?q=${encodeURIComponent(q)}&type=list`;
-  const gle=`https://www.google.com/complete/search?client=firefox&hl=zh-TW&q=${encodeURIComponent(q)}`;
-  const strategies=[
-    ()=>ddg,                                                                  // 直連 DDG（理想：原生 CORS）
-    ()=>`https://api.allorigins.win/raw?url=${encodeURIComponent(ddg)}`,       // DDG 轉 proxy
-    ()=>`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(ddg)}`, // DDG 轉備援 proxy
-    ()=>`https://api.allorigins.win/raw?url=${encodeURIComponent(gle)}`,       // Google 轉 proxy
-  ];
-  const errs=[];
-  for(const make of strategies){
-    const url=make();
-    try{
-      const r=await fetch(url,{signal:suggestAbort.signal,cache:"no-store"});
-      if(!r.ok){ errs.push(`${url} → HTTP ${r.status}`); continue; }
-      const text=await r.text();
-      const d=JSON.parse(text);
-      const arr=Array.isArray(d?.[1])?d[1].slice(0,8):[];
-      if(!arr.length){ errs.push(`${url} → empty`); continue; }
-      suggestCache.set(q,arr);
-      if(suggestCache.size>80) suggestCache.delete(suggestCache.keys().next().value);
-      return arr;
-    }catch(e){
-      if(e.name==="AbortError") return [];     // 被新查詢取消，正常
-      errs.push(`${url} → ${e.message||e}`);
-    }
+  // 1) JSONP (Google suggestqueries)：無 CORS 限制
+  let arr=await fetchSuggestionsJSONP(q);
+  // 2) 退回 proxy 路徑
+  if(!arr.length){
+    const r=await fetchSuggestionsProxy(q);
+    if(Array.isArray(r)) arr=r;
+    else { console.warn("[suggest] all strategies failed for",q,r.errs); arr=[]; }
   }
-  console.warn("[suggest] all strategies failed for", q, errs);
-  return [];
+  if(arr.length){
+    suggestCache.set(q,arr);
+    if(suggestCache.size>80) suggestCache.delete(suggestCache.keys().next().value);
+  }
+  return arr;
 }
 function hideSuggest(){ suggestEl.classList.remove("show"); suggestActive=-1; }
 function setSuggestActive(i){
