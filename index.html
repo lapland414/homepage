@@ -50,17 +50,18 @@ input,select,textarea{font-family:inherit}
 #bgGradient{
   z-index:1;
   background:linear-gradient(125deg,#0b0b10,#10131c,#1a1426,#0d1a1c,#0b0b10);
-  background-size:400% 400%;
-  animation:gradientShift 26s var(--ease) infinite;
-  /* 強制動態背景進 GPU 合成層，讓卡片的毛玻璃每幀重新取樣背景，
-     消除 backdrop-filter 快取造成的殘影（滑鼠不動時殘影不散的根源） */
-  transform:translateZ(0);will-change:transform,background-position;backface-visibility:hidden;
+  background-size:140% 140%;
+  background-position:50% 50%;
+  /* 靜態背景：背景不漂移，毛玻璃的模糊快照永遠對得上，
+     徹底消除 backdrop-filter 快取造成的卡片殘影。translateZ 讓它留在 GPU 層。 */
+  transform:translateZ(0);
 }
+/* 舊的漸層漂移動畫（會造成毛玻璃殘影，已停用；若日後改用 transform 版可再啟用）
 @keyframes gradientShift{
   0%{background-position:0% 50%}
   50%{background-position:100% 50%}
   100%{background-position:0% 50%}
-}
+} */
 #bgVideo{z-index:1;object-fit:cover;display:none}
 #bgFrame{z-index:1;display:none;pointer-events:none}
 #bgOverlay{z-index:2;background:#000;opacity:.35;transition:opacity .4s var(--ease)}
@@ -848,8 +849,9 @@ async function applyBackground(){
 
   if(cfg.bg.type==="gradient"){
     elBgGradient.style.background = GRADIENTS[cfg.bg.gradient]||GRADIENTS.midnight;
-    elBgGradient.style.backgroundSize="400% 400%";
-    elBgGradient.style.animation="";   // 還原 CSS 動畫（圖片模式曾設為 none）
+    elBgGradient.style.backgroundSize="140% 140%";
+    elBgGradient.style.backgroundPosition="50% 50%";
+    elBgGradient.style.animation="none";   // 靜態背景：不漂移，避免毛玻璃殘影
     elBgGradient.style.display="block";
   }
   else if(cfg.bg.type==="media"){
