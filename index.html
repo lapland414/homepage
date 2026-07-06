@@ -190,17 +190,19 @@ input,select,textarea{font-family:inherit}
   display:flex;flex-direction:column;align-items:center;gap:9px;padding:16px 8px;
   border-radius:var(--radius);background:var(--surface);
   backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
-  border:1px solid var(--border);box-shadow:var(--glass-edge);transition:.22s var(--ease);
-  /* 每張卡片獨立合成層：hover 上浮的陰影跟著圖層一起重繪，
-     不會在動態背景上留下殘影（滑鼠移動才消失的顯示錯誤） */
-  will-change:transform;backface-visibility:hidden;
+  border:1px solid var(--border);box-shadow:var(--glass-edge);
+  transition:border-color .22s var(--ease),background .22s var(--ease),box-shadow .22s var(--ease);
 }
-.link-card:hover{border-color:var(--border-strong);transform:translateY(-4px);background:var(--surface-2)}
+/* hover 時「毛玻璃卡片本身不位移」——backdrop-filter 元素一旦 transform，
+   Chrome 常沒清乾淨它離開的區域而留殘影。上浮感改由內層圖示位移＋加深陰影表現，
+   圖示/文字不是毛玻璃層，位移不會殘影。 */
+.link-card:hover{border-color:var(--border-strong);background:var(--surface-2);box-shadow:var(--glass-edge),0 16px 30px rgba(0,0,0,.34)}
+.link-card:hover .link-ico{transform:translateY(-3px)}
+.link-card:hover .link-name{color:var(--text)}
 .link-del{
   position:absolute;top:-7px;right:-7px;width:22px;height:22px;border-radius:50%;
   display:grid;place-items:center;font-size:14px;line-height:1;color:#fff;
-  background:rgba(18,18,22,.92);border:1px solid var(--border-strong);
-  backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
+  background:rgba(24,24,30,.98);border:1px solid var(--border-strong);
   opacity:0;transform:scale(.5);transition:.16s var(--ease);z-index:6;cursor:pointer;
 }
 .link-card:hover .link-del{opacity:1;transform:scale(1)}
@@ -209,6 +211,7 @@ input,select,textarea{font-family:inherit}
   width:40px;height:40px;display:grid;place-items:center;
   font-size:18px;font-weight:600;color:var(--text);
   filter:drop-shadow(0 2px 5px rgba(0,0,0,.35));   /* 圖示直接浮在玻璃上，加陰影增立體感 */
+  transition:transform .22s var(--ease);
 }
 .link-ico img{width:100%;height:100%;object-fit:contain}
 .link-name{font-size:12px;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
