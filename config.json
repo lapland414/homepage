@@ -1,0 +1,110 @@
+{
+  "name": "",
+  "engine": "google",
+  "city": "",
+  "bg": {
+    "type": "media",
+    "gradient": "midnight",
+    "iframeUrl": "D:\\SteamLibrary\\steamapps\\workshop\\content\\431960\\1286183699\\index.html",
+    "overlay": 35,
+    "mediaUrl": "",
+    "mediaKind": ""
+  },
+  "links": [
+    {
+      "name": "YouTube",
+      "url": "https://www.youtube.com"
+    },
+    {
+      "name": "Gmail",
+      "url": "https://mail.google.com"
+    },
+    {
+      "name": "GitHub",
+      "url": "https://github.com"
+    },
+    {
+      "name": "ChatGPT",
+      "url": "https://chatgpt.com"
+    },
+    {
+      "name": "Claude",
+      "url": "https://claude.ai"
+    },
+    {
+      "name": "bilbil",
+      "url": "https://www.bilibili.com/"
+    },
+    {
+      "name": "yt music",
+      "url": "https://music.youtube.com/"
+    },
+    {
+      "name": "Google ai studio",
+      "url": "https://aistudio.google.com/prompts/new_chat?project=gen-lang-client-0979876549"
+    },
+    {
+      "name": "gemini",
+      "url": "https://gemini.google.com/app"
+    },
+    {
+      "name": "日曆",
+      "url": "https://calendar.google.com/calendar/u/0/r/week"
+    },
+    {
+      "name": "Notion",
+      "url": "https://app.notion.com/p/1cb39f0c2ff340bc8cc80c40d9f5f878?v=34f35124a96144ab8c2a8b2c97b0ad9b"
+    },
+    {
+      "name": "參考服務案例",
+      "url": "https://foreverwebs.com/portfolio"
+    },
+    {
+      "name": "另一個服務案例",
+      "url": "https://www.darrelltw.com/n8n-expert/"
+    }
+  ],
+  "sections": [
+    {
+      "type": "weather",
+      "title": "天氣・穿搭"
+    },
+    {
+      "type": "rss",
+      "title": "租屋・永和/文山/新店",
+      "url": "https://www.ptt.cc/atom/Rent_tao.xml https://www.ptt.cc/atom/Rent_apart.xml",
+      "filter": "永和 文山 新店",
+      "exclude": ""
+    },
+    {
+      "type": "rss",
+      "title": "學生・AI 優惠",
+      "url": "https://news.google.com/rss/search?q=%E5%AD%B8%E7%94%9F%20(AI%20OR%20ChatGPT%20OR%20Gemini%20OR%20Claude%20OR%20Cursor%20OR%20Copilot%20OR%20Perplexity%20OR%20Notion%20OR%20Figma%20OR%20JetBrains)%20(%E5%85%8D%E8%B2%BB%20OR%20%E5%84%AA%E6%83%A0%20OR%20%E8%A8%82%E9%96%B1%20OR%20%E6%96%B9%E6%A1%88%20OR%20%E5%AD%B8%E7%94%9F%E7%89%88%20OR%20%E6%95%99%E8%82%B2%E7%89%88)&hl=zh-TW&gl=TW&ceid=TW:zh-Hant",
+      "filter": "AI ChatGPT Gemini Claude Cursor Copilot Perplexity Notion Figma JetBrains 學生方案 學生版 教育版",
+      "exclude": "遠傳 中華電信 台灣大 電信 Apple Watch iPad iPhone Mac 購機 筆電 營養午餐 競賽 機器人 天文 自主學習"
+    },
+    {
+      "type": "links",
+      "title": "學生優惠懶人包",
+      "items": [
+        {
+          "name": "台灣學生免費訂閱指南 2025–2026",
+          "url": "https://claude-world.com/zh-tw/articles/taiwan-student-free-subscriptions-guide-2025-2026/"
+        },
+        {
+          "name": "GitHub Student Pack",
+          "url": "https://education.github.com/pack"
+        },
+        {
+          "name": "Google for Education",
+          "url": "https://edu.google.com"
+        }
+      ]
+    },
+    {
+      "type": "f1",
+      "title": "F1 賽事"
+    }
+  ],
+  "migratedStudentV2": true
+}
