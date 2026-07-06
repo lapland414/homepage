@@ -50,18 +50,14 @@ input,select,textarea{font-family:inherit}
 #bgGradient{
   z-index:1;
   background:linear-gradient(125deg,#0b0b10,#10131c,#1a1426,#0d1a1c,#0b0b10);
-  background-size:140% 140%;
-  background-position:50% 50%;
-  /* 靜態背景：背景不漂移，毛玻璃的模糊快照永遠對得上，
-     徹底消除 backdrop-filter 快取造成的卡片殘影。translateZ 讓它留在 GPU 層。 */
-  transform:translateZ(0);
+  background-size:400% 400%;
+  animation:gradientShift 26s var(--ease) infinite;
 }
-/* 舊的漸層漂移動畫（會造成毛玻璃殘影，已停用；若日後改用 transform 版可再啟用）
 @keyframes gradientShift{
   0%{background-position:0% 50%}
   50%{background-position:100% 50%}
   100%{background-position:0% 50%}
-} */
+}
 #bgVideo{z-index:1;object-fit:cover;display:none}
 #bgFrame{z-index:1;display:none;pointer-events:none}
 #bgOverlay{z-index:2;background:#000;opacity:.35;transition:opacity .4s var(--ease)}
@@ -112,18 +108,15 @@ input,select,textarea{font-family:inherit}
   font-variant-numeric:tabular-nums;font-weight:600;color:#f5f5f8;
   --fw:112px;--fh:150px;--ff:108px;
   width:var(--fw);height:var(--fh);font-size:var(--ff);
-  /* 提升為獨立合成層：翻頁動畫與陰影在自己的圖層乾淨重繪，
-     避免動態背景下 GPU tile 殘影（滑鼠不動時殘影不消失的成因） */
-  transform:translateZ(0);will-change:transform;backface-visibility:hidden;
 }
 .flip.sec{--fw:64px;--fh:86px;--ff:58px;align-self:flex-end;margin-bottom:8px;opacity:.92}
 .flip > div{
   position:absolute;left:0;width:100%;height:50%;overflow:hidden;
-  display:flex;justify-content:center;background:rgba(20,20,25,.6);
+  display:flex;justify-content:center;background:rgba(22,22,28,.74);
 }
-.flip .upper{top:0;align-items:flex-start;border-radius:14px 14px 0 0;background:rgba(36,36,44,.5);box-shadow:inset 0 1px 0 rgba(255,255,255,.13)}
-.flip .lower{bottom:0;align-items:flex-end;border-radius:0 0 14px 14px;background:rgba(14,14,18,.66)}
-.flip .upper:not(.flap),.flip .lower:not(.flap){backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur)}
+/* 霧面時鐘：不用 backdrop-filter（同樣避開 Chrome 殘影 bug），改用略不透明的深色底 */
+.flip .upper{top:0;align-items:flex-start;border-radius:14px 14px 0 0;background:rgba(42,42,52,.7);box-shadow:inset 0 1px 0 rgba(255,255,255,.13)}
+.flip .lower{bottom:0;align-items:flex-end;border-radius:0 0 14px 14px;background:rgba(14,14,18,.82)}
 .flip .flap{z-index:3;backface-visibility:hidden;will-change:transform}
 .flip .flap.upper{transform-origin:bottom center}
 .flip .flap.lower{transform-origin:top center;transform:rotateX(90deg)}
@@ -186,20 +179,21 @@ input,select,textarea{font-family:inherit}
   margin-top:36px;width:100%;max-width:620px;
   display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:13px;
 }
+/* 霧面板（非真・毛玻璃）：不用 backdrop-filter，改半透明霧面漸層。
+   Chrome 的 backdrop-filter 殘影 bug 只發生在「真的即時模糊背景」的元件上；
+   改成固定的半透明面板後，永遠不會殘影，hover 位移也能安全保留。 */
 .link-card{
   position:relative;
   display:flex;flex-direction:column;align-items:center;gap:9px;padding:16px 8px;
-  border-radius:var(--radius);background:var(--surface);
-  backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
-  border:1px solid var(--border);box-shadow:var(--glass-edge);
-  transition:border-color .22s var(--ease),background .22s var(--ease),box-shadow .22s var(--ease);
+  border-radius:var(--radius);
+  background:linear-gradient(135deg,rgba(60,60,72,.55),rgba(40,40,50,.5) 55%,rgba(30,30,40,.5));
+  border:1px solid var(--border);box-shadow:var(--glass-edge);transition:.22s var(--ease);
 }
-/* hover 時「毛玻璃卡片本身不位移」——backdrop-filter 元素一旦 transform，
-   Chrome 常沒清乾淨它離開的區域而留殘影。上浮感改由內層圖示位移＋加深陰影表現，
-   圖示/文字不是毛玻璃層，位移不會殘影。 */
-.link-card:hover{border-color:var(--border-strong);background:var(--surface-2);box-shadow:var(--glass-edge),0 16px 30px rgba(0,0,0,.34)}
-.link-card:hover .link-ico{transform:translateY(-3px)}
-.link-card:hover .link-name{color:var(--text)}
+.link-card:hover{
+  border-color:var(--border-strong);transform:translateY(-4px);
+  background:linear-gradient(135deg,rgba(76,76,90,.62),rgba(50,50,62,.57) 55%,rgba(40,40,52,.57));
+  box-shadow:var(--glass-edge),0 16px 30px rgba(0,0,0,.34);
+}
 .link-del{
   position:absolute;top:-7px;right:-7px;width:22px;height:22px;border-radius:50%;
   display:grid;place-items:center;font-size:14px;line-height:1;color:#fff;
@@ -211,8 +205,7 @@ input,select,textarea{font-family:inherit}
 .link-ico{
   width:40px;height:40px;display:grid;place-items:center;
   font-size:18px;font-weight:600;color:var(--text);
-  filter:drop-shadow(0 2px 5px rgba(0,0,0,.35));   /* 圖示直接浮在玻璃上，加陰影增立體感 */
-  transition:transform .22s var(--ease);
+  filter:drop-shadow(0 2px 5px rgba(0,0,0,.35));   /* 圖示直接浮在面板上，加陰影增立體感 */
 }
 .link-ico img{width:100%;height:100%;object-fit:contain}
 .link-name{font-size:12px;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -849,9 +842,8 @@ async function applyBackground(){
 
   if(cfg.bg.type==="gradient"){
     elBgGradient.style.background = GRADIENTS[cfg.bg.gradient]||GRADIENTS.midnight;
-    elBgGradient.style.backgroundSize="140% 140%";
-    elBgGradient.style.backgroundPosition="50% 50%";
-    elBgGradient.style.animation="none";   // 靜態背景：不漂移，避免毛玻璃殘影
+    elBgGradient.style.backgroundSize="400% 400%";
+    elBgGradient.style.animation="";   // 還原 CSS 動畫（圖片模式曾設為 none）
     elBgGradient.style.display="block";
   }
   else if(cfg.bg.type==="media"){
