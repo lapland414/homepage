@@ -108,6 +108,9 @@ input,select,textarea{font-family:inherit}
   font-variant-numeric:tabular-nums;font-weight:600;color:#f5f5f8;
   --fw:112px;--fh:150px;--ff:108px;
   width:var(--fw);height:var(--fh);font-size:var(--ff);
+  /* 提升為獨立合成層：翻頁動畫與陰影在自己的圖層乾淨重繪，
+     避免動態背景下 GPU tile 殘影（滑鼠不動時殘影不消失的成因） */
+  transform:translateZ(0);will-change:transform;backface-visibility:hidden;
 }
 .flip.sec{--fw:64px;--fh:86px;--ff:58px;align-self:flex-end;margin-bottom:8px;opacity:.92}
 .flip > div{
@@ -185,6 +188,9 @@ input,select,textarea{font-family:inherit}
   border-radius:var(--radius);background:var(--surface);
   backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
   border:1px solid var(--border);box-shadow:var(--glass-edge);transition:.22s var(--ease);
+  /* 每張卡片獨立合成層：hover 上浮的陰影跟著圖層一起重繪，
+     不會在動態背景上留下殘影（滑鼠移動才消失的顯示錯誤） */
+  will-change:transform;backface-visibility:hidden;
 }
 .link-card:hover{border-color:var(--border-strong);transform:translateY(-4px);background:var(--surface-2)}
 .link-del{
@@ -316,8 +322,16 @@ input,select,textarea{font-family:inherit}
 .wxd-drow .dp{width:52px;font-size:11.5px;color:var(--accent)}
 .wxd-drow .dt{margin-left:auto;color:var(--text);font-variant-numeric:tabular-nums}
 .wxd-drow .dt small{color:var(--faint)}
-.wxd-radar{margin-top:2px;border-radius:14px;overflow:hidden;border:1px solid var(--border);height:210px;background:rgba(0,0,0,.25)}
+.wxd-radar{position:relative;margin-top:2px;border-radius:14px;overflow:hidden;border:1px solid var(--border);height:210px;background:rgba(0,0,0,.35)}
 .wxd-radar iframe{width:100%;height:100%;border:0;display:block}
+.wxd-map{position:absolute;inset:0;width:100%;height:100%;background:#0a0a12}
+/* Leaflet 深色底圖上的說明字幕 */
+.wxd-radar-cap{position:absolute;left:9px;right:9px;bottom:7px;z-index:500;pointer-events:none;
+  display:flex;justify-content:space-between;align-items:center;gap:8px;
+  font-size:10.5px;color:var(--muted);text-shadow:0 1px 3px rgba(0,0,0,.85)}
+.wxd-radar-cap .src2{color:var(--faint)}
+.wxd-radar .leaflet-container{background:#0a0a12;font-family:var(--font)}
+.wxd-radar .leaflet-tile{filter:none}
 @media (max-width:820px){ .wx-detail{right:372px;width:min(320px,64vw)} }
 
 /* F1 section */
@@ -330,6 +344,28 @@ input,select,textarea{font-family:inherit}
 .f1-row{display:flex;gap:8px;font-size:12px;padding:3px 0;color:var(--muted)}
 .f1-row .pos{color:var(--faint);width:15px}
 .f1-row .pts{margin-left:auto;color:var(--text);font-variant-numeric:tabular-nums}
+
+/* 番茄鐘 section */
+.pomo{display:flex;flex-direction:column;align-items:center;gap:13px;padding:6px 0 2px}
+.pomo-ring{position:relative;width:150px;height:150px}
+.pomo-ring svg{width:100%;height:100%;transform:rotate(-90deg);overflow:visible}
+.pomo-ring .track{fill:none;stroke:rgba(255,255,255,.09);stroke-width:8}
+.pomo-ring .prog{fill:none;stroke:var(--accent);stroke-width:8;stroke-linecap:round;
+  filter:drop-shadow(0 0 6px rgba(169,204,255,.4));transition:stroke-dashoffset .95s linear,stroke .3s var(--ease)}
+.pomo-ring.break .prog{stroke:#7fd29a;filter:drop-shadow(0 0 6px rgba(127,210,154,.4))}
+.pomo-time{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.pomo-time .t{font-size:34px;font-weight:300;font-variant-numeric:tabular-nums;letter-spacing:.02em;color:var(--text);text-shadow:var(--txt-shadow)}
+.pomo-time .m{font-size:10.5px;color:var(--faint);letter-spacing:.16em;margin-top:3px}
+.pomo-btns{display:flex;gap:8px}
+.pomo-btn{
+  padding:8px 16px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--text);
+  background:var(--surface);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
+  border:1px solid var(--border);transition:.18s var(--ease);
+}
+.pomo-btn:hover{border-color:var(--border-strong);background:var(--surface-2)}
+.pomo-btn.primary{background:var(--accent);color:#08131f;border-color:transparent}
+.pomo-btn.primary:hover{filter:brightness(1.08)}
+.pomo-count{font-size:11.5px;color:var(--faint);min-height:14px}
 
 /* ===================== 設定彈窗 ===================== */
 .overlay{
@@ -528,7 +564,7 @@ input,select,textarea{font-family:inherit}
       <button class="add-row" id="addSection" type="button">＋ 新增區塊</button>
       <div class="hint">
         類型：天氣＝自動天氣與穿搭；RSS＝貼上 feed 連結（PTT 看板用 https://www.ptt.cc/atom/看板.xml，可多個用空白分隔）；
-        連結＝常駐連結清單（每行「名稱 | 網址」）；F1＝賽事倒數與積分榜。<br>
+        連結＝常駐連結清單（每行「名稱 | 網址」）；F1＝賽事倒數與積分榜；番茄鐘＝專注／休息計時（可設分鐘數）。<br>
         RSS 兩道過濾：<b>只顯示</b>＝標題須含其一才顯示；<b>排除</b>＝標題含其一就剔除（例如排除「遠傳 電信 Apple Watch」）。
       </div>
     </div>
@@ -615,6 +651,7 @@ const DEFAULTS = {
       { name:"Google for Education", url:"https://edu.google.com" },
     ]},
     { type:"f1", title:"F1 賽事" },
+    { type:"pomodoro", title:"番茄鐘", work:25, brk:5 },
   ],
 };
 
@@ -1163,6 +1200,7 @@ function renderSections(){
     if(sec.type==="weather") renderWeather(el,sec);
     else if(sec.type==="f1") renderF1(el,sec);
     else if(sec.type==="links") renderLinksSection(el,sec);
+    else if(sec.type==="pomodoro") renderPomodoro(el,sec);
     else renderRss(el,sec);
   });
 }
@@ -1252,6 +1290,7 @@ function outfit(temp,rainProb,wind,code){
 }
 let wxLoc=null;          // 目前定位 {lat,lon,place}
 let wxDetailData=null;   // 詳細 hourly/daily 快取（同一位置只抓一次）
+let radarTimer=null;     // 雷達回波動畫計時器（面板關閉時清除以省 CPU）
 const wxDetailEl=document.getElementById("wxDetail");
 
 async function renderWeather(el,sec){
@@ -1285,7 +1324,7 @@ async function renderWeather(el,sec){
 
 /* ---- 天氣詳情面板（向左延伸；體感變化 / 降雨機率 / 雨圖 / 一週預報） ---- */
 function toggleWxDetail(){ (wxDetailEl && wxDetailEl.classList.contains("open"))?closeWxDetail():openWxDetail(); }
-function closeWxDetail(){ if(wxDetailEl) wxDetailEl.classList.remove("open"); }
+function closeWxDetail(){ if(wxDetailEl) wxDetailEl.classList.remove("open"); if(radarTimer){ clearInterval(radarTimer); radarTimer=null; } }
 function wxdHeader(){ return `<div class="wxd-head"><h3>天氣詳情</h3><button class="wxd-close" id="wxdClose" type="button" title="關閉"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`; }
 function bindWxdClose(){ const b=document.getElementById("wxdClose"); if(b) b.onclick=closeWxDetail; }
 async function openWxDetail(){
@@ -1355,9 +1394,61 @@ function wxDailyRows(d){
   }
   return html;
 }
+/* 降雨位置分佈：RainViewer 實測雷達回波（真實觀測，非預報模式；
+   台灣區用的是中央氣象署 CWA 雷達網資料，每 10 分鐘更新、可播放動畫）。
+   Leaflet 從 CDN 載入；載入或抓取失敗自動退回 Windy 內嵌雨圖。 */
 function wxRadar(lat,lon){
+  return `<div class="wxd-radar" id="wxdRadar"><div class="muted-note" style="padding:22px 8px;text-align:center">載入雷達回波…</div></div>`;
+}
+function windyIframe(lat,lon){
   const u=`https://embed.windy.com/embed2.html?lat=${lat}&lon=${lon}&detailLat=${lat}&detailLon=${lon}&zoom=8&level=surface&overlay=rain&menu=&message=&marker=true&calendar=&pressure=&type=map&location=coordinates&metricWind=default&metricTemp=default&radarRange=-1`;
-  return `<div class="wxd-radar"><iframe loading="lazy" referrerpolicy="no-referrer" src="${u}"></iframe></div>`;
+  return `<iframe loading="lazy" referrerpolicy="no-referrer" src="${u}"></iframe>`;
+}
+let _leafletPromise=null;
+function loadLeaflet(){
+  if(window.L) return Promise.resolve(window.L);
+  if(_leafletPromise) return _leafletPromise;
+  _leafletPromise=new Promise((res,rej)=>{
+    const css=document.createElement("link");
+    css.rel="stylesheet"; css.href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+    document.head.appendChild(css);
+    const s=document.createElement("script");
+    s.src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    s.onload=()=> window.L?res(window.L):rej(new Error("Leaflet 未就緒"));
+    s.onerror=()=>rej(new Error("Leaflet 載入失敗"));
+    document.head.appendChild(s);
+    setTimeout(()=>{ if(!window.L) rej(new Error("Leaflet 逾時")); },8000);
+  });
+  return _leafletPromise;
+}
+async function initRainRadar(lat,lon){
+  const box=document.getElementById("wxdRadar"); if(!box) return;
+  if(radarTimer){ clearInterval(radarTimer); radarTimer=null; }
+  try{
+    const L=await loadLeaflet();
+    if(!document.getElementById("wxdRadar")) return;   // 面板已關閉
+    box.innerHTML=`<div class="wxd-map" id="wxdMap"></div><div class="wxd-radar-cap"><span id="wxdRadarTime">即時雷達回波</span><span class="src2">RainViewer · 實測回波</span></div>`;
+    const map=L.map("wxdMap",{zoomControl:false,attributionControl:false,scrollWheelZoom:false,doubleClickZoom:true}).setView([lat,lon],8);
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",{maxZoom:12,subdomains:"abcd"}).addTo(map);
+    L.circleMarker([lat,lon],{radius:5,color:"#a9ccff",weight:2,fillColor:"#a9ccff",fillOpacity:.9}).addTo(map);
+    setTimeout(()=>map.invalidateSize(),120);
+    const meta=await fetch("https://api.rainviewer.com/public/weather-maps.json",{cache:"no-store"}).then(r=>r.json());
+    const frames=[...(meta.radar?.past||[]),...(meta.radar?.nowcast||[])];
+    if(!frames.length) throw new Error("無雷達幀");
+    const host=meta.host||"https://tilecache.rainviewer.com";
+    const layers=frames.map(f=>L.tileLayer(`${host}${f.path}/256/{z}/{x}/{y}/2/1_1.png`,{opacity:0,maxZoom:12,tileSize:256}).addTo(map));
+    const tl=document.getElementById("wxdRadarTime");
+    const show=i=>{
+      layers.forEach((l,k)=>l.setOpacity(k===i?.72:0));
+      const f=frames[i]; if(tl){ const d=new Date(f.time*1000), fut=f.time*1000>Date.now();
+        tl.textContent=(fut?"預測 ":"")+d.toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"})+" 回波"; }
+    };
+    let idx=frames.length-1; show(idx);
+    radarTimer=setInterval(()=>{ idx=(idx+1)%frames.length; show(idx); },700);
+  }catch(e){
+    if(!document.getElementById("wxdRadar")) return;
+    box.innerHTML=windyIframe(lat,lon);   // 退回 Windy
+  }
 }
 function renderWxDetail(){
   const j=wxDetailData; if(!j||!wxDetailEl) return;
@@ -1372,9 +1463,10 @@ function renderWxDetail(){
     + (place?`<div class="wxd-place">📍 ${escapeHtml(place)}</div>`:"")
     + `<div class="wxd-block"><div class="lbl">🌡️ 體感溫度變化<span class="rt">未來 24 小時</span></div>${wxTempChart(times,temp,app)}<div class="wxd-legend"><span><i class="sw sw-app"></i>體感溫度</span><span><i class="sw sw-temp"></i>實際氣溫</span></div></div>`
     + `<div class="wxd-block"><div class="lbl">🌧️ 降雨機率<span class="rt">未來 24 小時 (%)</span></div>${wxRainChart(times,prob)}</div>`
-    + `<div class="wxd-block"><div class="lbl">🗺️ 降雨位置分佈<span class="rt">Windy 即時雨圖</span></div>${wxRadar(wxLoc.lat,wxLoc.lon)}</div>`
+    + `<div class="wxd-block"><div class="lbl">🗺️ 降雨位置分佈<span class="rt">即時雷達回波</span></div>${wxRadar(wxLoc.lat,wxLoc.lon)}</div>`
     + `<div class="wxd-block"><div class="lbl">📅 一週預報</div><div class="wxd-daily">${wxDailyRows(D)}</div></div>`;
   bindWxdClose();
+  initRainRadar(wxLoc.lat,wxLoc.lon);   // 非同步載入雷達圖層
 }
 function getLocation(){
   return new Promise((resolve,reject)=>{
@@ -1463,6 +1555,80 @@ function updateF1Countdown(){
   el.innerHTML=`${dd}<small>天</small> ${hh}<small>時</small> ${mm}<small>分</small>`;
 }
 
+/* ---- 番茄鐘區塊 ---- */
+let pomo=null, pomoIv=null;
+const POMO_R=68, POMO_C=2*Math.PI*68;   // 進度環半徑與周長
+function pomoFmt(s){ s=Math.max(0,s|0); const m=Math.floor(s/60), ss=s%60; return String(m).padStart(2,"0")+":"+String(ss).padStart(2,"0"); }
+function pomoBeep(){
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+    const ac=new AC(); const o=ac.createOscillator(), g=ac.createGain();
+    o.type="sine"; o.frequency.setValueAtTime(880,ac.currentTime);
+    o.connect(g); g.connect(ac.destination);
+    g.gain.setValueAtTime(.0001,ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(.22,ac.currentTime+.03);
+    g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+.6);
+    o.start(); o.stop(ac.currentTime+.62);
+    o.onended=()=>{ try{ac.close();}catch(e){} };
+  }catch(e){}
+}
+function renderPomodoro(el,sec){
+  const work=Math.min(180,Math.max(1,+sec.work||25));
+  const brk =Math.min(60, Math.max(1,+sec.brk ||5));
+  if(!pomo){ pomo={mode:"work",work,brk,total:work*60,remaining:work*60,running:false,count:0}; }
+  else{ // 沿用進行中的計時，只在閒置時吸收新設定
+    pomo.work=work; pomo.brk=brk;
+    if(!pomo.running){ pomo.total=(pomo.mode==="work"?work:brk)*60;
+      if(pomo.remaining>pomo.total||pomo.remaining<=0) pomo.remaining=pomo.total; }
+  }
+  el.innerHTML=secHeader("🍅",sec.title||"番茄鐘","專注計時")+
+    `<div class="pomo">
+       <div class="pomo-ring" id="pomoRing">
+         <svg viewBox="0 0 150 150"><circle class="track" cx="75" cy="75" r="${POMO_R}"/><circle class="prog" id="pomoProg" cx="75" cy="75" r="${POMO_R}"/></svg>
+         <div class="pomo-time"><span class="t" id="pomoT">00:00</span><span class="m" id="pomoM">專注</span></div>
+       </div>
+       <div class="pomo-btns">
+         <button class="pomo-btn primary" id="pomoToggle" type="button">開始</button>
+         <button class="pomo-btn" id="pomoSkip" type="button" title="跳到下一階段">下一段</button>
+         <button class="pomo-btn" id="pomoReset" type="button" title="重設本段">重設</button>
+       </div>
+       <div class="pomo-count" id="pomoCount"></div>
+     </div>`;
+  const prog=el.querySelector("#pomoProg"); if(prog) prog.style.strokeDasharray=POMO_C.toFixed(1);
+  el.querySelector("#pomoToggle").onclick=()=>{ pomo.running=!pomo.running; pomoPaint(); };
+  el.querySelector("#pomoSkip").onclick=()=>pomoSwitch(true);
+  el.querySelector("#pomoReset").onclick=()=>{ pomo.remaining=pomo.total; pomoPaint(); };
+  if(!pomoIv) pomoIv=setInterval(pomoTick,1000);
+  pomoPaint();
+}
+function pomoTick(){
+  if(!pomo||!pomo.running) return;
+  pomo.remaining--;
+  if(pomo.remaining<=0){ pomoBeep(); pomoSwitch(false); }   // 時間到→自動換段並持續運行
+  pomoPaint();
+}
+function pomoSwitch(manual){
+  if(!pomo) return;
+  if(pomo.mode==="work"){ if(!manual) pomo.count++; pomo.mode="break"; pomo.total=pomo.brk*60; }
+  else{ pomo.mode="work"; pomo.total=pomo.work*60; }
+  pomo.remaining=pomo.total;
+  pomoPaint();
+}
+function pomoPaint(){
+  if(!pomo) return;
+  const t=document.getElementById("pomoT"); if(!t) return;   // 區塊當前未顯示
+  const m=document.getElementById("pomoM"), prog=document.getElementById("pomoProg"),
+        ring=document.getElementById("pomoRing"), tog=document.getElementById("pomoToggle"),
+        cnt=document.getElementById("pomoCount");
+  const isBreak=pomo.mode==="break";
+  t.textContent=pomoFmt(pomo.remaining);
+  if(m) m.textContent=isBreak?"休息":"專注";
+  if(ring) ring.classList.toggle("break",isBreak);
+  if(prog){ const frac=pomo.total?pomo.remaining/pomo.total:0; prog.style.strokeDashoffset=(POMO_C*(1-frac)).toFixed(1); }
+  if(tog) tog.textContent=pomo.running?"暫停":(pomo.remaining<pomo.total?"繼續":"開始");
+  if(cnt) cnt.textContent=pomo.count?`今日完成 ${pomo.count} 🍅`:`專注 ${pomo.work} 分・休息 ${pomo.brk} 分`;
+}
+
 document.getElementById("refreshFeeds").addEventListener("click",()=>{ localStorage.removeItem(CACHE_KEY); renderSections(); });
 
 /* ===================== 設定彈窗 ===================== */
@@ -1530,7 +1696,7 @@ function sectionRow(sec={type:"rss"}){
   wrap.style.cssText="border:1px solid var(--border);border-radius:11px;padding:10px;margin-bottom:9px";
   const top=document.createElement("div"); top.className="row-edit"; top.style.marginBottom="6px";
   const sel=document.createElement("select"); sel.className="select"; sel.style.flex=".7";
-  sel.innerHTML=`<option value="weather">天氣</option><option value="rss">RSS</option><option value="links">連結</option><option value="f1">F1</option>`;
+  sel.innerHTML=`<option value="weather">天氣</option><option value="rss">RSS</option><option value="links">連結</option><option value="f1">F1</option><option value="pomodoro">番茄鐘</option>`;
   sel.value=sec.type||"rss";
   const title=document.createElement("input"); title.className="input"; title.placeholder="標題"; title.value=sec.title||"";
   top.append(sel,title,delBtn(()=>wrap.remove()));
@@ -1542,16 +1708,22 @@ function sectionRow(sec={type:"rss"}){
   excludeIn.placeholder="排除含這些關鍵字（空白分隔，可留空）"; excludeIn.value=sec.exclude||"";
   const itemsIn=document.createElement("textarea"); itemsIn.className="textarea"; itemsIn.placeholder="每行一筆：名稱 | 網址";
   itemsIn.value=(sec.items||[]).map(i=>`${i.name} | ${i.url}`).join("\n");
+  const workIn=document.createElement("input"); workIn.className="input short"; workIn.type="number"; workIn.min="1"; workIn.max="180";
+  workIn.placeholder="專注分鐘（預設 25）"; workIn.value=sec.work||"";
+  const brkIn=document.createElement("input"); brkIn.className="input short"; brkIn.type="number"; brkIn.min="1"; brkIn.max="60"; brkIn.style.marginTop="6px";
+  brkIn.placeholder="休息分鐘（預設 5）"; brkIn.value=sec.brk||"";
   function sync(){
-    const r=sel.value==="rss";
+    const r=sel.value==="rss", p=sel.value==="pomodoro";
     urlIn.style.display=r?"":"none"; filterIn.style.display=r?"":"none"; excludeIn.style.display=r?"":"none";
     itemsIn.style.display=sel.value==="links"?"":"none";
+    workIn.style.display=p?"":"none"; brkIn.style.display=p?"":"none";
   }
-  sel.onchange=sync; extra.append(urlIn,filterIn,excludeIn,itemsIn); wrap.append(top,extra); sync();
+  sel.onchange=sync; extra.append(urlIn,filterIn,excludeIn,itemsIn,workIn,brkIn); wrap.append(top,extra); sync();
   wrap._read=()=>{
     const t=sel.value, o={type:t,title:title.value.trim()};
     if(t==="rss"){ o.url=urlIn.value.trim(); o.filter=filterIn.value.trim(); o.exclude=excludeIn.value.trim(); }
     if(t==="links")o.items=itemsIn.value.split("\n").map(l=>{const[n,u]=l.split("|");return{name:(n||"").trim(),url:(u||"").trim()};}).filter(x=>x.url);
+    if(t==="pomodoro"){ o.work=Math.min(180,Math.max(1,+workIn.value||25)); o.brk=Math.min(60,Math.max(1,+brkIn.value||5)); }
     return o;
   };
   return wrap;
