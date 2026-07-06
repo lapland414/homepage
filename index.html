@@ -52,6 +52,9 @@ input,select,textarea{font-family:inherit}
   background:linear-gradient(125deg,#0b0b10,#10131c,#1a1426,#0d1a1c,#0b0b10);
   background-size:400% 400%;
   animation:gradientShift 26s var(--ease) infinite;
+  /* 強制動態背景進 GPU 合成層，讓卡片的毛玻璃每幀重新取樣背景，
+     消除 backdrop-filter 快取造成的殘影（滑鼠不動時殘影不散的根源） */
+  transform:translateZ(0);will-change:transform,background-position;backface-visibility:hidden;
 }
 @keyframes gradientShift{
   0%{background-position:0% 50%}
