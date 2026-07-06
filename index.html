@@ -64,18 +64,18 @@ input,select,textarea{font-family:inherit}
 .app{position:relative;z-index:10}
 
 /* 液態玻璃鏡面高光：左上亮、往右下淡出 */
-.search-box::before,.link-card::before,.panel::before,.modal::before{
+.search-box::before,.link-card::before,.panel::before,.wx-detail::before,.modal::before{
   content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
   background:var(--sheen);z-index:0;
 }
 .search-box svg,.search-box input{position:relative;z-index:1}
 .link-card .link-ico,.link-card .link-name{position:relative;z-index:1}
 .panel-head,#sections{position:relative;z-index:1}
-.modal>*{position:relative;z-index:1}
+.modal>*,.wx-detail>*{position:relative;z-index:1}
 /* 捲軸 */
-.panel::-webkit-scrollbar{width:8px}
-.panel::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:99px}
-.panel::-webkit-scrollbar-track{background:transparent}
+.panel::-webkit-scrollbar,.wx-detail::-webkit-scrollbar{width:8px}
+.panel::-webkit-scrollbar-thumb,.wx-detail::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:99px}
+.panel::-webkit-scrollbar-track,.wx-detail::-webkit-scrollbar-track{background:transparent}
 
 /* ===================== 版面 ===================== */
 .app{
@@ -218,10 +218,24 @@ input,select,textarea{font-family:inherit}
 .sidebar:hover{transform:translateX(0)}
 .sidebar:not(:hover) .panel{opacity:.9}  /* 收合時微透明，hover 點亮 */
 .panel{
+  position:relative;
   width:364px;max-height:calc(100vh - 32px);overflow-y:auto;
-  background:var(--surface);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
-  border:1px solid var(--border);border-radius:26px;box-shadow:var(--glass-edge);
-  padding:8px;transition:opacity .4s var(--ease);
+  border-radius:28px;padding:8px;transition:opacity .4s var(--ease);
+}
+/* Apple iOS「液態玻璃」：厚模糊+高飽和提亮 + 亮邊鏡面高光 + 左右緣折射 + 底部內暗影景深 */
+.liquid{
+  background:linear-gradient(155deg,rgba(255,255,255,.22),rgba(255,255,255,.06) 44%,rgba(255,255,255,.02));
+  backdrop-filter:blur(34px) saturate(200%) brightness(1.12);
+  -webkit-backdrop-filter:blur(34px) saturate(200%) brightness(1.12);
+  border:1px solid rgba(255,255,255,.26);
+  box-shadow:
+    0 24px 64px rgba(0,0,0,.48),
+    0 4px 14px rgba(0,0,0,.26),
+    inset 0 1.5px 1px rgba(255,255,255,.75),
+    inset 1.5px 0 1px rgba(255,255,255,.22),
+    inset -1.5px 0 1px rgba(255,255,255,.10),
+    inset 0 -22px 46px rgba(0,0,0,.18),
+    inset 0 0 0 1px rgba(255,255,255,.05);
 }
 .panel-head{
   display:flex;align-items:center;justify-content:space-between;
@@ -244,7 +258,8 @@ input,select,textarea{font-family:inherit}
 .err{color:var(--danger)}
 
 /* 天氣 section */
-.wx-link{display:block;border-radius:14px;padding:6px;margin:-6px -6px 0;transition:.2s var(--ease)}
+.wx-link{display:block;border-radius:14px;padding:6px;margin:-6px -6px 0;transition:.2s var(--ease);cursor:pointer;outline:none}
+.wx-link:focus-visible{background:rgba(255,255,255,.07);box-shadow:0 0 0 2px rgba(126,176,255,.4)}
 .wx-link:hover{background:rgba(255,255,255,.07)}
 .wx-now{display:flex;align-items:center;gap:14px}
 .wx-ico{font-size:40px;line-height:1;filter:drop-shadow(0 2px 6px rgba(0,0,0,.4))}
@@ -259,6 +274,51 @@ input,select,textarea{font-family:inherit}
   border-radius:11px;padding:9px 11px;
 }
 .wx-outfit b{color:var(--accent);font-weight:600}
+
+/* ---- 天氣詳情：由側欄向左延伸的液態玻璃面板 ---- */
+.wx-detail{
+  position:absolute;top:50%;right:378px;   /* 右緣與側欄面板左緣重疊 2px，作為滑鼠 hover 橋接（避免中途縮回） */
+  width:min(380px,42vw);max-height:calc(100vh - 32px);overflow-y:auto;
+  border-radius:28px;padding:15px 16px 18px;
+  transform:translateY(-50%) translateX(26px);
+  opacity:0;pointer-events:none;
+  transition:opacity .38s var(--ease),transform .5s var(--ease);
+}
+.wx-detail.open{opacity:1;pointer-events:auto;transform:translateY(-50%) translateX(0)}
+.wxd-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}
+.wxd-head h3{font-size:15px;font-weight:600;color:var(--text);text-shadow:var(--txt-shadow)}
+.wxd-close{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:var(--faint);transition:.15s var(--ease)}
+.wxd-close svg{width:16px;height:16px}
+.wxd-close:hover{color:var(--text);background:rgba(255,255,255,.12)}
+.wxd-place{font-size:12px;color:var(--muted);margin-bottom:6px;text-shadow:var(--txt-shadow)}
+.wxd-block{margin-top:16px}
+.wxd-block>.lbl{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--text);margin-bottom:9px;text-shadow:var(--txt-shadow)}
+.wxd-block>.lbl .rt{margin-left:auto;font-weight:400;color:var(--faint);font-size:11px}
+.wxd-chart{width:100%;height:auto;display:block;overflow:visible}
+.wxd-chart .area{fill:rgba(169,204,255,.16)}
+.wxd-chart .line{fill:none;stroke:var(--accent);stroke-width:2.4;stroke-linejoin:round;stroke-linecap:round;filter:drop-shadow(0 1px 3px rgba(0,0,0,.35))}
+.wxd-chart .line.dim{stroke:rgba(255,255,255,.42);stroke-width:1.6;stroke-dasharray:3 3;filter:none}
+.wxd-chart .dot{fill:var(--accent)}
+.wxd-chart .glabel{fill:var(--faint);font-size:9px}
+.wxd-chart .vlabel{fill:var(--text);font-size:9.5px;font-weight:600;paint-order:stroke;stroke:rgba(0,0,0,.45);stroke-width:2.4px;stroke-linejoin:round}
+.wxd-chart .bar{fill:var(--accent);opacity:.85}
+.wxd-chart .bar.dry{fill:rgba(255,255,255,.16)}
+.wxd-chart .grid{stroke:rgba(255,255,255,.09);stroke-width:1}
+.wxd-legend{display:flex;gap:16px;margin-top:7px;font-size:11px;color:var(--faint)}
+.wxd-legend i.sw{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.wxd-legend .sw-app{background:var(--accent)}
+.wxd-legend .sw-temp{background:rgba(255,255,255,.45)}
+.wxd-daily{display:flex;flex-direction:column}
+.wxd-drow{display:flex;align-items:center;gap:10px;font-size:12.5px;padding:6px 0;border-top:1px solid var(--border);color:var(--muted)}
+.wxd-drow:first-child{border-top:none}
+.wxd-drow .d{width:46px;color:var(--muted)}
+.wxd-drow .di{font-size:17px;width:22px;text-align:center;line-height:1}
+.wxd-drow .dp{width:52px;font-size:11.5px;color:var(--accent)}
+.wxd-drow .dt{margin-left:auto;color:var(--text);font-variant-numeric:tabular-nums}
+.wxd-drow .dt small{color:var(--faint)}
+.wxd-radar{margin-top:2px;border-radius:14px;overflow:hidden;border:1px solid var(--border);height:210px;background:rgba(0,0,0,.25)}
+.wxd-radar iframe{width:100%;height:100%;border:0;display:block}
+@media (max-width:820px){ .wx-detail{right:372px;width:min(320px,64vw)} }
 
 /* F1 section */
 .f1-race{font-size:14px;font-weight:600}
@@ -367,7 +427,9 @@ input,select,textarea{font-family:inherit}
 
 <!-- 側邊大框：貼右緣自動隱藏，滑鼠移到右側滑出 -->
 <div class="sidebar" id="sidebar">
-  <div class="panel">
+  <!-- 天氣詳情：點側欄天氣後由此向左延伸滑出 -->
+  <div class="wx-detail liquid" id="wxDetail" role="dialog" aria-label="天氣詳情"></div>
+  <div class="panel liquid">
     <div class="panel-head">
       <h2>今日資訊</h2>
       <div style="display:flex;gap:2px">
@@ -1188,31 +1250,131 @@ function outfit(temp,rainProb,wind,code){
   if(wind>=30)ex.push("風大，加件防風外套");
   return s+(ex.length?"，"+ex.join("、"):"");
 }
+let wxLoc=null;          // 目前定位 {lat,lon,place}
+let wxDetailData=null;   // 詳細 hourly/daily 快取（同一位置只抓一次）
+const wxDetailEl=document.getElementById("wxDetail");
+
 async function renderWeather(el,sec){
+  wxDetailData=null; closeWxDetail();           // 重新渲染（換位置/重新整理）時清掉舊詳情
   el.innerHTML=secHeader("🌤️",sec.title||"天氣","")+`<div class="bd"><div class="muted-note">取得位置中…</div></div>`;
   const bd=el.querySelector(".bd");
   try{
     const {lat,lon,place}=await getLocation();
+    wxLoc={lat,lon,place};
     const wx=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m,apparent_temperature&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=1`).then(r=>r.json());
     const cur=wx.current, day=wx.daily;
     const [ic,desc]=WMO[cur.weather_code]||["🌡️","—"];
     const rp=day.precipitation_probability_max?.[0]??0;
-    const wxUrl=place
-      ? `https://www.google.com/search?q=${encodeURIComponent(place.replace(/・/g," ")+" 天氣")}`
-      : `https://www.windy.com/?${lat},${lon},9`;
     bd.innerHTML=`
-      <a class="wx-link" href="${wxUrl}" target="_blank" rel="noopener" title="查看詳細天氣">
+      <div class="wx-link" id="wxOpen" role="button" tabindex="0" title="點擊查看詳細天氣">
         <div class="wx-now">
           <div class="wx-ico">${ic}</div>
           <div>
-            <div class="wx-temp">${Math.round(cur.temperature_2m)}°<span class="wx-go">查看詳情 ↗</span></div>
+            <div class="wx-temp">${Math.round(cur.temperature_2m)}°<span class="wx-go">詳細資料 ›</span></div>
             <div class="wx-meta">${desc}・體感 ${Math.round(cur.apparent_temperature)}°<br>${Math.round(day.temperature_2m_min[0])}° / ${Math.round(day.temperature_2m_max[0])}°・降雨 ${rp}%</div>
           </div>
         </div>
         <div class="wx-place">${escapeHtml(place||"")}・濕度 ${cur.relative_humidity_2m}%・風 ${Math.round(cur.wind_speed_10m)}km/h</div>
-      </a>
+      </div>
       <div class="wx-outfit"><b>穿搭建議</b>：${escapeHtml(outfit(cur.temperature_2m,rp,cur.wind_speed_10m,cur.weather_code))}</div>`;
+    const opener=document.getElementById("wxOpen");
+    opener.addEventListener("click",toggleWxDetail);
+    opener.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); toggleWxDetail(); } });
   }catch(e){ bd.innerHTML=`<div class="muted-note err">無法取得天氣（${escapeHtml(e.message||"")}）。可於設定填固定城市。</div>`; }
+}
+
+/* ---- 天氣詳情面板（向左延伸；體感變化 / 降雨機率 / 雨圖 / 一週預報） ---- */
+function toggleWxDetail(){ (wxDetailEl && wxDetailEl.classList.contains("open"))?closeWxDetail():openWxDetail(); }
+function closeWxDetail(){ if(wxDetailEl) wxDetailEl.classList.remove("open"); }
+function wxdHeader(){ return `<div class="wxd-head"><h3>天氣詳情</h3><button class="wxd-close" id="wxdClose" type="button" title="關閉"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`; }
+function bindWxdClose(){ const b=document.getElementById("wxdClose"); if(b) b.onclick=closeWxDetail; }
+async function openWxDetail(){
+  if(!wxLoc||!wxDetailEl) return;
+  wxDetailEl.classList.add("open");
+  if(!wxDetailData){
+    wxDetailEl.innerHTML=wxdHeader()+`<div class="muted-note" style="padding:24px 6px">載入詳細資料…</div>`;
+    bindWxdClose();
+    try{
+      const {lat,lon}=wxLoc;
+      const j=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum&timezone=auto&forecast_days=7`).then(r=>r.json());
+      if(!j.hourly||!j.hourly.time) throw new Error("no data");
+      wxDetailData=j;
+    }catch(e){
+      wxDetailEl.innerHTML=wxdHeader()+`<div class="muted-note err" style="padding:18px 6px">詳細資料載入失敗，稍後再試。</div>`;
+      bindWxdClose(); return;
+    }
+  }
+  try{ renderWxDetail(); }
+  catch(e){
+    wxDetailEl.innerHTML=wxdHeader()+`<div class="muted-note err" style="padding:18px 6px">詳細資料顯示失敗。</div>`;
+    bindWxdClose();
+  }
+}
+function wxCurHourIdx(times){
+  const now=Date.now();
+  for(let i=0;i<times.length;i++){ if(new Date(times[i]).getTime()>=now-36e5) return i; }
+  return 0;
+}
+// 體感溫度折線（含實際氣溫虛線對照）
+function wxTempChart(times,temp,app){
+  const n=app.length, w=340,h=124,padT=18,padB=20,padX=8;
+  const iw=w-padX*2, ih=h-padT-padB;
+  const all=app.concat(temp); let mn=Math.min(...all), mx=Math.max(...all);
+  if(mx-mn<4){ mx+=2; mn-=2; } const rng=(mx-mn)||1;
+  const X=i=> padX+(n<=1?iw/2:i*iw/(n-1));
+  const Y=v=> padT+ih-(v-mn)/rng*ih;
+  const line=a=>a.map((v,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(v).toFixed(1)).join("");
+  const area=`M${X(0).toFixed(1)} ${(padT+ih).toFixed(1)}`+app.map((v,i)=>"L"+X(i).toFixed(1)+" "+Y(v).toFixed(1)).join("")+`L${X(n-1).toFixed(1)} ${(padT+ih).toFixed(1)}Z`;
+  let ticks=""; for(let i=0;i<n;i+=4) ticks+=`<text class="glabel" x="${X(i).toFixed(1)}" y="${h-6}" text-anchor="middle">${new Date(times[i]).getHours()}時</text>`;
+  const iMax=app.indexOf(Math.max(...app)), iMin=app.indexOf(Math.min(...app));
+  const mark=(i,dy)=>`<circle class="dot" cx="${X(i).toFixed(1)}" cy="${Y(app[i]).toFixed(1)}" r="2.6"/><text class="vlabel" x="${X(i).toFixed(1)}" y="${(Y(app[i])+dy).toFixed(1)}" text-anchor="middle">${Math.round(app[i])}°</text>`;
+  return `<svg class="wxd-chart" viewBox="0 0 ${w} ${h}"><path class="area" d="${area}"/><path class="line dim" d="${line(temp)}"/><path class="line" d="${line(app)}"/>${mark(iMax,-7)}${mark(iMin,14)}${ticks}</svg>`;
+}
+// 降雨機率長條（<20% 淡化）
+function wxRainChart(times,prob){
+  const n=prob.length, w=340,h=118,padT=12,padB=20,padX=16;
+  const iw=w-padX*2, ih=h-padT-padB, gap=iw/n, bw=gap*0.62;
+  const gy=v=>padT+ih-v/100*ih;
+  let grid=""; [0,50,100].forEach(v=>{ grid+=`<line class="grid" x1="${padX}" y1="${gy(v).toFixed(1)}" x2="${w-padX}" y2="${gy(v).toFixed(1)}"/><text class="glabel" x="2" y="${(gy(v)+3).toFixed(1)}">${v}</text>`; });
+  let bars="",ticks="";
+  for(let i=0;i<n;i++){
+    const p=prob[i]||0, bh=Math.max(1.5,p/100*ih), x=padX+i*gap+(gap-bw)/2, y=padT+ih-bh;
+    bars+=`<rect class="bar${p<20?' dry':''}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="1.5"/>`;
+    if(i%4===0) ticks+=`<text class="glabel" x="${(padX+i*gap+gap/2).toFixed(1)}" y="${h-6}" text-anchor="middle">${new Date(times[i]).getHours()}時</text>`;
+  }
+  return `<svg class="wxd-chart" viewBox="0 0 ${w} ${h}">${grid}${bars}${ticks}</svg>`;
+}
+function wxDailyRows(d){
+  const wk=["日","一","二","三","四","五","六"]; let html="";
+  const N=Math.min(7,(d.time||[]).length);
+  for(let i=0;i<N;i++){
+    const dt=new Date(d.time[i]+"T00:00"), [ic]=WMO[d.weather_code[i]]||["🌡️","—"];
+    const lbl=i===0?"今天":i===1?"明天":"週"+wk[dt.getDay()];
+    const rp=d.precipitation_probability_max?.[i]??0;
+    html+=`<div class="wxd-drow"><span class="d">${lbl}</span><span class="di">${ic}</span><span class="dp">💧 ${rp}%</span><span class="dt">${Math.round(d.temperature_2m_min[i])}°<small> / </small>${Math.round(d.temperature_2m_max[i])}°</span></div>`;
+  }
+  return html;
+}
+function wxRadar(lat,lon){
+  const u=`https://embed.windy.com/embed2.html?lat=${lat}&lon=${lon}&detailLat=${lat}&detailLon=${lon}&zoom=8&level=surface&overlay=rain&menu=&message=&marker=true&calendar=&pressure=&type=map&location=coordinates&metricWind=default&metricTemp=default&radarRange=-1`;
+  return `<div class="wxd-radar"><iframe loading="lazy" referrerpolicy="no-referrer" src="${u}"></iframe></div>`;
+}
+function renderWxDetail(){
+  const j=wxDetailData; if(!j||!wxDetailEl) return;
+  const H=j.hourly, D=j.daily||{};
+  const times0=H.time||[];
+  const idx=wxCurHourIdx(times0), end=Math.min(times0.length,idx+24);
+  const times=times0.slice(idx,end), temp=(H.temperature_2m||[]).slice(idx,end),
+        app=(H.apparent_temperature||H.temperature_2m||[]).slice(idx,end),
+        prob=(H.precipitation_probability||[]).slice(idx,end).map(v=>v==null?0:v);
+  const place=wxLoc?.place||"";
+  wxDetailEl.innerHTML = wxdHeader()
+    + (place?`<div class="wxd-place">📍 ${escapeHtml(place)}</div>`:"")
+    + `<div class="wxd-block"><div class="lbl">🌡️ 體感溫度變化<span class="rt">未來 24 小時</span></div>${wxTempChart(times,temp,app)}<div class="wxd-legend"><span><i class="sw sw-app"></i>體感溫度</span><span><i class="sw sw-temp"></i>實際氣溫</span></div></div>`
+    + `<div class="wxd-block"><div class="lbl">🌧️ 降雨機率<span class="rt">未來 24 小時 (%)</span></div>${wxRainChart(times,prob)}</div>`
+    + `<div class="wxd-block"><div class="lbl">🗺️ 降雨位置分佈<span class="rt">Windy 即時雨圖</span></div>${wxRadar(wxLoc.lat,wxLoc.lon)}</div>`
+    + `<div class="wxd-block"><div class="lbl">📅 一週預報</div><div class="wxd-daily">${wxDailyRows(D)}</div></div>`;
+  bindWxdClose();
 }
 function getLocation(){
   return new Promise((resolve,reject)=>{
@@ -1493,7 +1655,7 @@ document.getElementById("openSettings").onclick=openSettings;
 document.getElementById("cancelSettings").onclick=closeSettings;
 overlay.addEventListener("click",e=>{ if(e.target===overlay)closeSettings(); });
 document.addEventListener("keydown",e=>{
-  if(e.key==="Escape"){ closeSettings(); closeBookmarkAdd(); }
+  if(e.key==="Escape"){ closeSettings(); closeBookmarkAdd(); closeWxDetail(); }
   const anyOpen=overlay.classList.contains("open")||bmOverlay.classList.contains("open");
   if(e.key==="/"&&document.activeElement!==searchInput&&!anyOpen){ e.preventDefault(); searchInput.focus(); }
 });
