@@ -71,13 +71,6 @@
     },
     {
       "type": "rss",
-      "title": "租屋・永和/文山/新店",
-      "url": "https://www.ptt.cc/atom/Rent_tao.xml https://www.ptt.cc/atom/Rent_apart.xml",
-      "filter": "永和 文山 新店",
-      "exclude": ""
-    },
-    {
-      "type": "rss",
       "title": "學生・AI 優惠",
       "url": "https://news.google.com/rss/search?q=%E5%AD%B8%E7%94%9F%20(AI%20OR%20ChatGPT%20OR%20Gemini%20OR%20Claude%20OR%20Cursor%20OR%20Copilot%20OR%20Perplexity%20OR%20Notion%20OR%20Figma%20OR%20JetBrains)%20(%E5%85%8D%E8%B2%BB%20OR%20%E5%84%AA%E6%83%A0%20OR%20%E8%A8%82%E9%96%B1%20OR%20%E6%96%B9%E6%A1%88%20OR%20%E5%AD%B8%E7%94%9F%E7%89%88%20OR%20%E6%95%99%E8%82%B2%E7%89%88)&hl=zh-TW&gl=TW&ceid=TW:zh-Hant",
       "filter": "AI ChatGPT Gemini Claude Cursor Copilot Perplexity Notion Figma JetBrains 學生方案 學生版 教育版",
