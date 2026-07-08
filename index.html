@@ -1427,7 +1427,7 @@ async function initRainRadar(lat,lon){
   try{
     const L=await loadLeaflet();
     if(!document.getElementById("wxdRadar")) return;   // 面板已關閉
-    box.innerHTML=`<div class="wxd-map" id="wxdMap"></div><div class="wxd-radar-cap"><span id="wxdRadarTime">即時雷達回波</span><span class="src2">RainViewer · 實測回波</span></div>`;
+    box.innerHTML=`<div class="wxd-map" id="wxdMap"></div><div class="wxd-radar-cap"><span id="wxdRadarTime">即時雷達回波</span><span class="src2">實測回波 · 無色塊＝該區無雨</span></div>`;
     const map=L.map("wxdMap",{zoomControl:false,attributionControl:false,scrollWheelZoom:false,doubleClickZoom:true}).setView([lat,lon],8);
     L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",{maxZoom:12,subdomains:"abcd"}).addTo(map);
     L.circleMarker([lat,lon],{radius:5,color:"#a9ccff",weight:2,fillColor:"#a9ccff",fillOpacity:.9}).addTo(map);
@@ -1436,10 +1436,10 @@ async function initRainRadar(lat,lon){
     const frames=[...(meta.radar?.past||[]),...(meta.radar?.nowcast||[])];
     if(!frames.length) throw new Error("無雷達幀");
     const host=meta.host||"https://tilecache.rainviewer.com";
-    const layers=frames.map(f=>L.tileLayer(`${host}${f.path}/256/{z}/{x}/{y}/2/1_1.png`,{opacity:0,maxZoom:12,tileSize:256}).addTo(map));
+    const layers=frames.map(f=>L.tileLayer(`${host}${f.path}/256/{z}/{x}/{y}/4/1_1.png`,{opacity:0,maxZoom:12,tileSize:256}).addTo(map));   // 配色 4＝綠→黃→紅，深底上清楚
     const tl=document.getElementById("wxdRadarTime");
     const show=i=>{
-      layers.forEach((l,k)=>l.setOpacity(k===i?.72:0));
+      layers.forEach((l,k)=>l.setOpacity(k===i?.85:0));
       const f=frames[i]; if(tl){ const d=new Date(f.time*1000), fut=f.time*1000>Date.now();
         tl.textContent=(fut?"預測 ":"")+d.toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"})+" 回波"; }
     };
