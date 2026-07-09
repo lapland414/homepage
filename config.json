@@ -66,6 +66,10 @@
     {
       "name": "我的網站",
       "url": "https://twlp365.com/zh-tw"
+    },
+    {
+      "name": "實驗室電腦",
+      "url": "http://140.118.6.25:8765/"
     }
   ],
   "sections": [
